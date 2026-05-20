@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useAppAuth } from "@/lib/auth";
+import { reviewRoles, type ReviewRole } from "@mradi/contracts";
 import { ArrowLeft, ClipboardCheck, Gavel, MapPinned, UserRoundCheck } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { SuccessState } from "@/components/state-views";
@@ -22,7 +23,8 @@ export default function ReviewRequestPage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const reviewerRole = searchParams.get("role") === "surveyor" ? "surveyor" : "advocate";
+  const requestedRole = searchParams.get("role");
+  const reviewerRole: ReviewRole = reviewRoles.includes(requestedRole as ReviewRole) ? (requestedRole as ReviewRole) : "advocate";
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,9 +61,9 @@ export default function ReviewRequestPage() {
           </Button>
           <div className="mb-6">
             <p className="text-sm font-medium text-primary">Human expert review</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">Request advocate or surveyor review</h1>
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight">Request expert help</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Route the case to a professional when official verification is incomplete, risk is high, or boundary and consent questions need expert judgment.
+              Route the case to a professional workflow when official verification is incomplete, risk is high, a site visit is needed, or boundary and consent questions need expert judgment.
             </p>
           </div>
           <Card className="premium-panel">
@@ -75,9 +77,10 @@ export default function ReviewRequestPage() {
               <form onSubmit={onSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="reviewer_role">Reviewer type</Label>
-                <Select id="reviewer_role" name="reviewer_role" defaultValue={reviewerRole}>
-                    <option value="advocate">Advocate</option>
-                    <option value="surveyor">Surveyor</option>
+                  <Select id="reviewer_role" name="reviewer_role" defaultValue={reviewerRole}>
+                    {reviewRoles.map((role) => (
+                      <option key={role} value={role}>{reviewRoleLabel(role)}</option>
+                    ))}
                   </Select>
                 </div>
                 <div>
@@ -89,7 +92,7 @@ export default function ReviewRequestPage() {
                   <Textarea
                     id="note"
                     name="note"
-                    placeholder="Summarize what you want reviewed: parcel mismatch, Gazette conflict, consent gap, boundary issue..."
+                    placeholder="Summarize what you need: advocate review, surveyor review, site visit, boundary verification, official search assistance..."
                   />
                 </div>
                 {status ? <SuccessState message={status} /> : null}
@@ -106,9 +109,9 @@ export default function ReviewRequestPage() {
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:h-fit">
           {[
-            { icon: Gavel, title: "Advocate-ready", body: "Best for agreements, consents, POA, ownership evidence, and legal transfer conditions." },
-            { icon: MapPinned, title: "Surveyor-ready", body: "Best for maps, mutation forms, boundaries, acreage, beacons, and parcel identity questions." },
-            { icon: ClipboardCheck, title: "Audit logged", body: "Review requests are stored with case context and visible in the timeline and audit log." }
+            { icon: Gavel, title: "Advocate review", body: "Best for agreements, consents, POA, ownership evidence, and legal transfer conditions." },
+            { icon: MapPinned, title: "Surveyor and boundary help", body: "Best for maps, mutation forms, boundaries, acreage, beacons, site visits, and parcel identity questions." },
+            { icon: ClipboardCheck, title: "Official search assistance", body: "Use when a fresh search certificate is missing, stale, or needs professional follow-up." }
           ].map((item) => {
             const Icon = item.icon;
             return (
@@ -127,4 +130,15 @@ export default function ReviewRequestPage() {
       </div>
     </AppShell>
   );
+}
+
+function reviewRoleLabel(role: ReviewRole) {
+  const labels: Record<ReviewRole, string> = {
+    advocate: "Advocate review",
+    surveyor: "Surveyor review",
+    site_visit: "Site visit",
+    boundary_verification: "Boundary verification",
+    official_search_assistance: "Official search assistance"
+  };
+  return labels[role];
 }

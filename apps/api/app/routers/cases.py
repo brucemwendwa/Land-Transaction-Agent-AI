@@ -8,9 +8,29 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.session import get_db
 from app.deps import get_case_for_user, get_current_user
 from app.domain.enums import CaseStatus, UserRole
-from app.models import AuditLog, Document, LandCase, Report, TimelineEvent, User
-from app.schemas import CaseCreate, CaseRead, CaseUpdate, DeleteCaseResponse, TimelineEventRead
+from app.models import (
+    AuditLog,
+    Document,
+    GazetteSearch,
+    GazetteSearchResult,
+    LandCase,
+    Report,
+    RiskAnalysisResult,
+    TimelineEvent,
+    User,
+    VerificationAttempt,
+)
+from app.schemas import (
+    CaseAgentAnswerResponse,
+    CaseAgentQuestionRequest,
+    CaseCreate,
+    CaseRead,
+    CaseUpdate,
+    DeleteCaseResponse,
+    TimelineEventRead,
+)
 from app.services.audit import write_audit, write_timeline
+from app.services.case_agent import answer_case_question
 from app.services.storage import get_storage_provider
 
 router = APIRouter(prefix="/cases", tags=["cases"])
@@ -101,6 +121,80 @@ async def case_timeline(
         .order_by(TimelineEvent.created_at.asc())
         .all()
     )
+
+
+@router.post("/{case_id}/ask", response_model=CaseAgentAnswerResponse)
+async def ask_case_agent(
+    case_id: str,
+    payload: CaseAgentQuestionRequest,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> CaseAgentAnswerResponse:
+    case = get_case_for_user(case_id, db, current_user)
+    documents = (
+        db.query(Document)
+        .options(
+            selectinload(Document.extracted_fields),
+            selectinload(Document.field_corrections),
+        )
+        .filter(Document.case_id == case.id)
+        .all()
+    )
+    risk_analysis = (
+        db.query(RiskAnalysisResult)
+        .filter(RiskAnalysisResult.case_id == case.id)
+        .order_by(RiskAnalysisResult.created_at.desc())
+        .first()
+    )
+    report = (
+        db.query(Report)
+        .filter(Report.case_id == case.id)
+        .order_by(Report.created_at.desc())
+        .first()
+    )
+    gazette_searches = (
+        db.query(GazetteSearch)
+        .filter(GazetteSearch.case_id == case.id)
+        .order_by(GazetteSearch.created_at.desc())
+        .limit(3)
+        .all()
+    )
+    gazette_results = (
+        db.query(GazetteSearchResult)
+        .filter(GazetteSearchResult.case_id == case.id)
+        .order_by(GazetteSearchResult.confidence_score.desc())
+        .limit(8)
+        .all()
+    )
+    verification_attempts = (
+        db.query(VerificationAttempt)
+        .filter(VerificationAttempt.case_id == case.id)
+        .order_by(VerificationAttempt.created_at.desc())
+        .all()
+    )
+    answer = answer_case_question(
+        case=case,
+        documents=documents,
+        risk_analysis=risk_analysis,
+        report=report,
+        gazette_searches=gazette_searches,
+        gazette_results=gazette_results,
+        verification_attempts=verification_attempts,
+        question=payload.question,
+    )
+    write_audit(
+        db,
+        action="case.agent_question.ask",
+        target_type="case",
+        target_id=case.id,
+        actor=current_user,
+        request=request,
+        case_id=case.id,
+        metadata={"citation_count": len(answer["citations"])},
+    )
+    db.commit()
+    return CaseAgentAnswerResponse.model_validate(answer)
 
 
 @router.delete("/{case_id}", response_model=DeleteCaseResponse)

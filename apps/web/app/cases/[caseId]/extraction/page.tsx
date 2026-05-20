@@ -11,6 +11,7 @@ import { ProgressTracker } from "@/components/progress-tracker";
 import { StatusBadge, statusToneFromValue } from "@/components/status-badge";
 import { EmptyState, ErrorState, LoadingPanel, SuccessState } from "@/components/state-views";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -213,6 +214,12 @@ export default function ExtractionPage() {
                               <ShieldQuestion className="h-3.5 w-3.5" aria-hidden="true" />
                               {field.source}{field.page_number ? ` · page ${field.page_number}` : ""}
                             </div>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {fieldStatusLabels(documents, document, field).map((label) => (
+                                <Badge key={label} variant="outline" className="text-[10px]">{label}</Badge>
+                              ))}
+                            </div>
+                            <Progress className="mt-2 h-1.5" value={Math.round(field.confidence * 100)} aria-label={`${field.field_name} confidence`} />
                             {field.text_snippet ? (
                               <blockquote className="mt-3 rounded-md border-l-2 border-primary/60 bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
                                 {field.text_snippet}
@@ -302,4 +309,16 @@ function confidenceTone(score: number | null) {
 
 function confidenceLabel(score: number | null) {
   return score === null ? "Confidence pending" : `${Math.round(score * 100)}% confidence`;
+}
+
+function fieldStatusLabels(documents: ApiDocument[], document: ApiDocument, field: ApiDocument["extracted_fields"][number]) {
+  const labels = [field.source === "user_correction" ? "user corrected" : "AI extracted"];
+  const corrected = document.field_corrections.some((item) => item.extracted_field_id === field.id || item.field_name === field.field_name);
+  if (corrected) labels.push("user corrected");
+  const sameValueCount = documents.flatMap((item) => item.extracted_fields).filter(
+    (item) => item.field_name === field.field_name && item.normalized_value === field.normalized_value
+  ).length;
+  if (sameValueCount > 1) labels.push("matched across documents");
+  if (field.confidence < 0.55) labels.push("manual review required");
+  return Array.from(new Set(labels));
 }

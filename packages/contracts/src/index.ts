@@ -47,6 +47,16 @@ export type RiskBand = "low" | "medium" | "high" | "critical";
 
 export type UserRole = "buyer" | "advocate" | "surveyor" | "admin";
 
+export const reviewRoles = [
+  "advocate",
+  "surveyor",
+  "site_visit",
+  "boundary_verification",
+  "official_search_assistance"
+] as const;
+
+export type ReviewRole = (typeof reviewRoles)[number];
+
 export interface ExtractedField {
   id: string;
   document_id: string;

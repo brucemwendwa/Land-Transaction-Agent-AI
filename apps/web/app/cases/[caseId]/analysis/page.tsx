@@ -7,6 +7,7 @@ import { useAppAuth } from "@/lib/auth";
 import { ArrowRight, BrainCircuit, ExternalLink, FileSearch, Gavel, Landmark, Newspaper, Scale, ShieldCheck, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
+import { CaseAgentChat } from "@/components/case-agent-chat";
 import { ProgressTracker } from "@/components/progress-tracker";
 import { RiskMeter } from "@/components/risk-meter";
 import { StatusBadge } from "@/components/status-badge";
@@ -246,6 +247,7 @@ export default function AnalysisPage() {
             </CardContent>
           </Card>
           <Button asChild variant="outline" className="w-full"><Link href={`/cases/${params.caseId}/timeline`}>View timeline</Link></Button>
+          <CaseAgentChat caseId={params.caseId} />
         </aside>
       </div>
     </AppShell>

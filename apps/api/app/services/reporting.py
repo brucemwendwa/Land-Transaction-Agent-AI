@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import html
 import io
+import re
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from difflib import SequenceMatcher
 from typing import Any
 
 from reportlab.lib import colors
@@ -81,6 +83,32 @@ def build_report_content(
     inconsistencies_found = _inconsistencies_found(consistency)
     gazette_summary = _gazette_search_results(gazette)
     official_review = _official_search_certificate_review(official_search)
+    search_certificate_intelligence = _search_certificate_intelligence(case, official_review)
+    gazette_intelligence = _gazette_risk_intelligence(gazette_summary)
+    trust_evidence_panel = _trust_evidence_panel(
+        risk_factors=risk_factors,
+        extracted_documents=extracted_documents,
+        official_search=official_review,
+        gazette=gazette_summary,
+    )
+    risk_factors = _attach_trust_evidence(risk_factors, trust_evidence_panel)
+    verification_status_labels = _verification_status_labels(
+        verification_status=verification_status,
+        extracted_documents=extracted_documents,
+        inconsistencies_found=inconsistencies_found,
+        official_search=official_review,
+        gazette=gazette_summary,
+        risk_factors=risk_factors,
+    )
+    before_deposit_warnings = _before_deposit_warnings(
+        missing_documents=missing_documents,
+        risk_factors=risk_factors,
+        official_search=official_review,
+        search_certificate=search_certificate_intelligence,
+        gazette=gazette_summary,
+        score=score,
+        band_value=band_value,
+    )
     recommended_next_steps = _dedupe(
         [
             *_string_list(agent_context.get("recommended_next_actions", [])),
@@ -90,13 +118,19 @@ def build_report_content(
             "Do not release purchase funds until official and professional checks are complete.",
         ]
     )
+    confidence_scores = _confidence_score_payload(extracted_documents)
+    kiswahili_summaries = _kiswahili_summaries(
+        score=score,
+        band_value=band_value,
+        warnings=before_deposit_warnings,
+        next_steps=recommended_next_steps,
+        missing_documents=missing_documents,
+    )
+    human_review_workflow = _human_review_workflow(before_deposit_warnings, risk_factors)
     plain_english = _plain_summary(score, band, verification_status)
     sw_summary = ""
     if language == "sw":
-        sw_summary = (
-            f"Ripoti hii inaonyesha alama ya hatari {score}/100 ({band_value}). "
-            "Ni msaada wa AI kwa uamuzi wa awali, si uthibitisho rasmi wa umiliki wala ushauri wa kisheria."
-        )
+        sw_summary = kiswahili_summaries["risk_report"]
     case_summary = {
         "case_id": getattr(case, "id", ""),
         "case_title": getattr(case, "title", ""),
@@ -150,7 +184,14 @@ def build_report_content(
         "missing_documents": missing_documents,
         "inconsistencies_found": inconsistencies_found,
         "gazette_search_results": gazette_summary,
+        "gazette_risk_intelligence": gazette_intelligence,
         "official_search_certificate_review": official_review,
+        "search_certificate_intelligence": search_certificate_intelligence,
+        "verification_status_labels": verification_status_labels,
+        "before_deposit_warnings": before_deposit_warnings,
+        "trust_evidence_panel": trust_evidence_panel,
+        "confidence_scores": confidence_scores,
+        "human_review_workflow": human_review_workflow,
         "risk_score": score,
         "risk_level": band_value,
         "risk_factors": risk_factors,
@@ -158,6 +199,7 @@ def build_report_content(
         "recommended_next_steps": recommended_next_steps,
         "plain_english_explanation": plain_english,
         "kiswahili_summary": sw_summary,
+        "kiswahili_summaries": kiswahili_summaries,
         "legal_disclaimer": LEGAL_DISCLAIMER,
         "appendix_evidence_references": _evidence_references(
             risk_factors=risk_factors,
@@ -294,7 +336,19 @@ def render_report_pdf(content: dict[str, Any]) -> bytes:
     _add_section(story, styles, "9. Official Search Certificate Review")
     _append_official_search(story, content.get("official_search_certificate_review", {}), styles)
 
-    _add_section(story, styles, "10. Risk Score")
+    _add_section(story, styles, "10. Before You Pay Deposit Warning")
+    story.append(
+        _findings_table(
+            content.get("before_deposit_warnings", []),
+            styles,
+            empty="No automated deposit-stopper warning was triggered. Continue with official and professional checks.",
+        )
+    )
+
+    _add_section(story, styles, "11. Verification Status Labels")
+    story.append(_status_label_table(content.get("verification_status_labels", []), styles))
+
+    _add_section(story, styles, "12. Risk Score")
     story.append(RiskMeterFlowable(content.get("risk_score", 0), content.get("risk_level", "not recorded")))
     story.append(Spacer(1, 8))
     story.append(
@@ -304,27 +358,30 @@ def render_report_pdf(content: dict[str, Any]) -> bytes:
         )
     )
 
-    _add_section(story, styles, "11. Risk Level")
+    _add_section(story, styles, "13. Risk Level")
     story.append(_risk_level_panel(content, styles))
 
-    _add_section(story, styles, "12. Detailed Risk Factors")
+    _add_section(story, styles, "14. Detailed Risk Factors")
     story.append(_risk_factor_table(content.get("detailed_risk_factors") or content.get("risk_factors", []), styles))
 
-    _add_section(story, styles, "13. Recommended Next Actions")
+    _add_section(story, styles, "15. Trust Evidence Panel")
+    story.append(_trust_evidence_table(content.get("trust_evidence_panel", []), styles))
+
+    _add_section(story, styles, "16. Recommended Next Actions")
     _append_bullets(story, content.get("recommended_next_steps", []), styles)
 
-    _add_section(story, styles, "14. Plain-English Explanation")
+    _add_section(story, styles, "17. Plain-English Explanation")
     plain_english = content.get("plain_english_explanation") or content.get("summary", {}).get("plain_english", "")
     story.append(_paragraph(plain_english, styles["BodyText"]))
 
     if content.get("kiswahili_summary") or content.get("summary", {}).get("kiswahili"):
-        _add_section(story, styles, "15. Optional Kiswahili Summary")
+        _add_section(story, styles, "18. Optional Kiswahili Summary")
         story.append(_paragraph(content.get("kiswahili_summary") or content.get("summary", {}).get("kiswahili", ""), styles["BodyText"]))
 
-    _add_section(story, styles, "16. Legal Disclaimer")
+    _add_section(story, styles, "19. Legal Disclaimer")
     story.append(_paragraph(content.get("legal_disclaimer", LEGAL_DISCLAIMER), styles["BodyText"]))
 
-    _add_section(story, styles, "17. Appendix With Evidence References")
+    _add_section(story, styles, "20. Appendix With Evidence References")
     story.append(_evidence_table(content.get("appendix_evidence_references", []), styles))
 
     doc.build(story, onFirstPage=_draw_header_footer(content), onLaterPages=_draw_header_footer(content))
@@ -659,6 +716,40 @@ def _risk_factor_table(factors: list[dict[str, Any]], styles: dict[str, Paragrap
     return table
 
 
+def _status_label_table(labels: list[dict[str, Any]], styles: dict[str, ParagraphStyle]) -> Table:
+    if not labels:
+        return _table([[Paragraph("No verification labels were recorded.", styles["BodyText"])]], [162 * mm], header=False)
+    rows: list[list[Any]] = [["Label", "Status", "Explanation"]]
+    for item in labels:
+        rows.append(
+            [
+                item.get("label", "Status"),
+                "Recorded" if item.get("applies") else "Not recorded",
+                item.get("explanation", ""),
+            ]
+        )
+    return _table([[_cell(value, styles) for value in row] for row in rows], [42 * mm, 28 * mm, 92 * mm])
+
+
+def _trust_evidence_table(rows: list[dict[str, Any]], styles: dict[str, ParagraphStyle]) -> Table:
+    if not rows:
+        return _table([[Paragraph("No risk-factor evidence rows were recorded.", styles["BodyText"])]], [162 * mm], header=False)
+    table_rows: list[list[Any]] = [["Risk", "Document", "Extracted", "Compared", "Action"]]
+    for row in rows[:18]:
+        confidence = row.get("confidence_score")
+        confidence_label = f" ({_percent(confidence)})" if confidence not in (None, "") else ""
+        table_rows.append(
+            [
+                row.get("risk_label") or row.get("risk_code") or "Risk",
+                row.get("document_caused") or "Case evidence",
+                f"{row.get('extracted_value') or 'Not recorded'}{confidence_label}",
+                row.get("compared_value") or "Not recorded",
+                row.get("recommended_action") or "Review with a professional.",
+            ]
+        )
+    return _table([[_cell(value, styles) for value in row] for row in table_rows], [34 * mm, 35 * mm, 32 * mm, 31 * mm, 30 * mm])
+
+
 def _append_bullets(story: list[Any], items: list[str], styles: dict[str, ParagraphStyle]) -> None:
     if not items:
         story.append(Paragraph("No next actions were recorded.", styles["BodyText"]))
@@ -841,12 +932,31 @@ def _extracted_information(extracted_documents: list[dict[str, Any]]) -> list[di
     ]
     output: list[dict[str, Any]] = []
     for document in extracted_documents:
-        fields = [{"name": name, "value": document.get(name)} for name in field_names if document.get(name) not in (None, "", [], {})]
+        evidence_by_field: dict[str, list[dict[str, Any]]] = {}
+        for ref in document.get("evidence", []) or []:
+            if isinstance(ref, dict) and ref.get("field_name"):
+                evidence_by_field.setdefault(str(ref.get("field_name")), []).append(ref)
+        fields = []
+        for name in field_names:
+            if document.get(name) in (None, "", [], {}):
+                continue
+            refs = evidence_by_field.get(name, [])
+            fields.append(
+                {
+                    "name": name,
+                    "value": document.get(name),
+                    "confidence": _mean_float([ref.get("confidence") for ref in refs]) if refs else document.get("extraction_confidence"),
+                    "source": ", ".join(sorted({str(ref.get("source")) for ref in refs if ref.get("source")})) or "extracted_document",
+                    "status_labels": _field_status_labels(refs[0], extracted_documents) if refs else ["AI extracted"],
+                }
+            )
         if fields:
             output.append(
                 {
                     "document_id": document.get("document_id", ""),
                     "document_label": f"{_label(document.get('category', 'Document'))}: {document.get('filename') or 'Uploaded file'}",
+                    "extraction_confidence": document.get("extraction_confidence"),
+                    "document_quality_score": document.get("document_quality_score"),
                     "fields": fields,
                 }
             )
@@ -925,6 +1035,7 @@ def _gazette_search_results(gazette: dict[str, Any]) -> dict[str, Any]:
         "status": gazette.get("gazette_status") or gazette.get("status") or "not_checked",
         "query_terms": gazette.get("query_terms", []),
         "notices": notices,
+        "source_results": gazette.get("source_results", []),
         "reason": gazette.get("reason") or gazette.get("message") or "Gazette search was not checked or did not return a recorded note.",
         "checked_at": gazette.get("checked_at", ""),
     }
@@ -938,6 +1049,527 @@ def _official_search_certificate_review(official: dict[str, Any]) -> dict[str, A
         "conflicts": official.get("conflicts", []),
         "reason": official.get("reason") or "No official registry API verification was recorded.",
     }
+
+
+def _verification_status_labels(
+    *,
+    verification_status: VerificationStatus,
+    extracted_documents: list[dict[str, Any]],
+    inconsistencies_found: list[dict[str, Any]],
+    official_search: dict[str, Any],
+    gazette: dict[str, Any],
+    risk_factors: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    status_value = _enum_value(verification_status)
+    has_extraction = any(document.get("evidence") for document in extracted_documents)
+    has_corrections = any(
+        ref.get("source") == "user_correction"
+        for document in extracted_documents
+        for ref in document.get("evidence", []) or []
+        if isinstance(ref, dict)
+    )
+    mismatch_codes = {
+        str(item.get("code", ""))
+        for item in inconsistencies_found
+        if "mismatch" in str(item.get("code", ""))
+    }
+    checked_gazette = _normalized_gazette_status(gazette) in {"checked_no_match", "checked_match_found"}
+    official_uploaded = official_search.get("official_search_status") == "parsed"
+    manual_review = (
+        status_value in {"manual_review_required", "adapter_unavailable", "conflict_found"}
+        or any(str(factor.get("severity")) == "critical" for factor in risk_factors)
+    )
+    return [
+        _verification_label("ai_extracted", "AI extracted", has_extraction, "Structured fields were read from uploaded documents."),
+        _verification_label(
+            "user_corrected",
+            "user corrected",
+            has_corrections,
+            "A user correction exists for at least one extracted field.",
+        ),
+        _verification_label(
+            "matched_across_documents",
+            "matched across documents",
+            has_extraction and not mismatch_codes,
+            "No parcel, title, seller, owner, or ID mismatch was recorded in the current analysis.",
+        ),
+        _verification_label(
+            "checked_against_gazette",
+            "checked against Gazette",
+            checked_gazette,
+            f"Gazette status: {_normalized_gazette_status(gazette).replace('_', ' ')}.",
+        ),
+        _verification_label(
+            "official_search_uploaded",
+            "official search uploaded",
+            official_uploaded,
+            "An uploaded search certificate was parsed. This is not independent registry API verification.",
+        ),
+        _verification_label(
+            "not_verified_from_official_registry",
+            "not verified from official registry",
+            status_value != VerificationStatus.VERIFIED.value,
+            "No successful official registry ownership verification is recorded for this case.",
+            tone="warning",
+        ),
+        _verification_label(
+            "manual_review_required",
+            "manual review required",
+            manual_review,
+            "A professional should review unresolved, high, or critical evidence before funds move.",
+            tone="danger" if manual_review else "neutral",
+        ),
+    ]
+
+
+def _verification_label(
+    code: str,
+    label: str,
+    applies: bool,
+    explanation: str,
+    *,
+    tone: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "code": code,
+        "label": label,
+        "applies": applies,
+        "status": "applies" if applies else "not_recorded",
+        "tone": tone or ("success" if applies else "neutral"),
+        "explanation": explanation,
+    }
+
+
+def _search_certificate_intelligence(case: LandCase, official: dict[str, Any]) -> dict[str, Any]:
+    certificate = official.get("certificate") or {}
+    uploaded = official.get("official_search_status") == "parsed" and bool(certificate)
+    date_issued = certificate.get("date_issued") if isinstance(certificate, dict) else ""
+    parsed_date = _parse_date(date_issued)
+    older_than_30_days = bool(parsed_date and parsed_date < date.today() - timedelta(days=30))
+    owner_names = certificate.get("owner_names", []) if isinstance(certificate, dict) else []
+    seller_name = getattr(case, "seller_name", "") or ""
+    owner_matches_seller = None
+    if uploaded and owner_names and seller_name:
+        owner_matches_seller = any(_names_match(str(owner), seller_name) for owner in owner_names)
+    encumbrances = certificate.get("encumbrances", []) if isinstance(certificate, dict) else []
+    conflicts = official.get("conflicts") or []
+    return {
+        "status": "uploaded" if uploaded else "missing",
+        "uploaded": uploaded,
+        "registry_verification_claimed": official.get("verification_status") == VerificationStatus.VERIFIED.value,
+        "registry_verification_note": "Official ownership verification is only claimed when an official registry result is recorded.",
+        "date_issued": date_issued or "",
+        "older_than_30_days": older_than_30_days,
+        "owner_names": owner_names,
+        "seller_name": seller_name,
+        "owner_matches_seller": owner_matches_seller,
+        "parcel_number": certificate.get("parcel_number", "") if isinstance(certificate, dict) else "",
+        "title_number": certificate.get("title_number", "") if isinstance(certificate, dict) else "",
+        "mentions_encumbrances": bool(encumbrances),
+        "encumbrances": encumbrances,
+        "mentions_cautions_restrictions_or_charges": any(
+            word in " ".join(str(item).lower() for item in encumbrances)
+            for word in ("caution", "restriction", "charge", "encumbrance")
+        ),
+        "conflicts": conflicts,
+        "recommended_action": _search_certificate_action(uploaded, older_than_30_days, owner_matches_seller, encumbrances, conflicts),
+    }
+
+
+def _search_certificate_action(
+    uploaded: bool,
+    older_than_30_days: bool,
+    owner_matches_seller: bool | None,
+    encumbrances: list[Any],
+    conflicts: list[Any],
+) -> str:
+    if not uploaded:
+        return "Upload a fresh official search certificate before paying any deposit."
+    if older_than_30_days:
+        return "Request a fresh official search certificate issued within the last 30 days."
+    if owner_matches_seller is False:
+        return "Ask an advocate to verify why the seller differs from the owner on the uploaded search certificate."
+    if encumbrances or conflicts:
+        return "Resolve the certificate conflict, caution, restriction, charge, or encumbrance before completion."
+    return "Keep the uploaded search certificate with the file and still confirm official registry status through a qualified professional."
+
+
+def _gazette_risk_intelligence(gazette: dict[str, Any]) -> dict[str, Any]:
+    status = _normalized_gazette_status(gazette)
+    return {
+        "status": status,
+        "query_terms": gazette.get("query_terms", []),
+        "notices": gazette.get("notices", []),
+        "source_results": gazette.get("source_results", []),
+        "reason": gazette.get("reason") or gazette.get("message") or "",
+        "manual_review_required": status in {"checked_match_found", "search_failed", "manual_review_required", "not_configured"},
+        "searched_fields": _gazette_searched_fields(gazette.get("query_terms", [])),
+        "recommended_action": _gazette_action(status),
+    }
+
+
+def _normalized_gazette_status(gazette: dict[str, Any]) -> str:
+    raw = str(gazette.get("status") or gazette.get("gazette_status") or "not_checked")
+    reason = str(gazette.get("reason") or gazette.get("message") or "").lower()
+    if raw in {"checked_match_found", "checked_no_match", "search_failed", "not_configured", "manual_review_required"}:
+        return raw
+    if raw == "matches_found":
+        return "checked_match_found"
+    if raw == "checked_no_match":
+        return "checked_no_match"
+    if raw == "failed":
+        return "search_failed"
+    if raw == "not_checked" and "not configured" in reason:
+        return "not_configured"
+    if raw == "not_checked" and ("no parcel" in reason or "no usable" in reason or "no query" in reason):
+        return "manual_review_required"
+    if raw == "not_checked":
+        return "not_configured"
+    return "manual_review_required"
+
+
+def _gazette_action(status: str) -> str:
+    if status == "checked_no_match":
+        return "Keep the search record, but do not treat Gazette no-match as ownership verification."
+    if status == "checked_match_found":
+        return "Have an advocate review the Gazette notice before signing or paying."
+    if status == "search_failed":
+        return "Retry configured Gazette search or perform a manual Gazette review."
+    if status == "not_configured":
+        return "Configure Gazette sources or route the case to manual Gazette review."
+    return "Add stronger parcel, LR/title, owner, county, and location terms, then review manually."
+
+
+def _gazette_searched_fields(query_terms: list[Any]) -> list[str]:
+    labels: set[str] = set()
+    for term in query_terms:
+        value = str(term)
+        if re.search(r"\b(LR|L\.R\.|PLOT|PARCEL|BLOCK|/)\b", value, re.I):
+            labels.add("parcel number / LR number")
+        elif re.search(r"\bCOUNTY\b", value, re.I):
+            labels.add("county")
+        elif len(value.split()) >= 2:
+            labels.add("owner name / location")
+        else:
+            labels.add("title number / keyword")
+    return sorted(labels)
+
+
+def _before_deposit_warnings(
+    *,
+    missing_documents: list[dict[str, Any]],
+    risk_factors: list[dict[str, Any]],
+    official_search: dict[str, Any],
+    search_certificate: dict[str, Any],
+    gazette: dict[str, Any],
+    score: int,
+    band_value: str,
+) -> list[dict[str, Any]]:
+    missing_categories = {item.get("category") for item in missing_documents}
+    factor_codes = {str(factor.get("code")) for factor in risk_factors}
+
+    warnings = [
+        _deposit_warning(
+            "search_certificate_missing",
+            "Search certificate is missing",
+            "critical",
+            not search_certificate.get("uploaded")
+            or "missing_official_land_search" in factor_codes
+            or "land_search_certificate" in missing_categories,
+            "No uploaded official search certificate is available for comparison.",
+            "Obtain a fresh official land search before paying a deposit.",
+        ),
+        _deposit_warning(
+            "seller_owner_mismatch",
+            "Seller does not match owner",
+            "critical",
+            "seller_name_mismatch" in factor_codes or search_certificate.get("owner_matches_seller") is False,
+            "Seller/owner evidence does not align across the uploaded documents or parsed search certificate.",
+            "Ask an advocate to confirm the registered owner and seller authority.",
+        ),
+        _deposit_warning(
+            "parcel_title_mismatch",
+            "Parcel/title number mismatch exists",
+            "critical",
+            "parcel_number_mismatch" in factor_codes
+            or _has_official_conflict(
+                official_search,
+                {"parcel_number_mismatch", "title_number_mismatch"},
+            ),
+            "Parcel or title identifiers differ across uploaded evidence.",
+            "Stop and reconcile parcel, title, LR, block, and plot numbers before paying.",
+        ),
+        _deposit_warning(
+            "consent_missing",
+            "Consent is missing",
+            "high",
+            "missing_consent_to_transfer" in factor_codes or "consent_to_transfer" in missing_categories,
+            "Consent to transfer was not uploaded or was flagged as missing.",
+            "Confirm whether consent is required and obtain it before completion.",
+        ),
+        _deposit_warning(
+            "gazette_possible_conflict",
+            "Gazette possible conflict exists",
+            "critical",
+            "gazette_notice_conflict" in factor_codes or _normalized_gazette_status(gazette) == "checked_match_found",
+            "A configured Gazette search produced a possible match or conflict signal.",
+            "Have an advocate inspect the Gazette notice and source context.",
+        ),
+        _deposit_warning(
+            "poor_document_quality",
+            "Document quality is poor",
+            "high",
+            bool({"poor_image_quality", "low_document_confidence", "suspicious_document_edits"} & factor_codes),
+            "One or more documents have low OCR confidence, poor quality, or suspicious edit signals.",
+            "Request clearer originals and manually review altered or unreadable files.",
+        ),
+        _deposit_warning(
+            "critical_transaction_risk",
+            "Transaction has critical risk",
+            "critical",
+            band_value == "critical" or score >= 81 or any(str(factor.get("severity")) == "critical" for factor in risk_factors),
+            f"The current risk score is {score}/100 ({band_value}).",
+            "Do not release funds until official and professional checks are complete.",
+        ),
+    ]
+    return [warning for warning in warnings if warning["triggered"]]
+
+
+def _deposit_warning(
+    code: str,
+    label: str,
+    severity: str,
+    triggered: bool,
+    explanation: str,
+    recommended_action: str,
+) -> dict[str, Any]:
+    return {
+        "code": code,
+        "label": label,
+        "severity": severity,
+        "triggered": triggered,
+        "explanation": explanation,
+        "recommended_action": recommended_action,
+    }
+
+
+def _has_official_conflict(official_search: dict[str, Any], codes: set[str]) -> bool:
+    return any(str(item.get("code")) in codes for item in official_search.get("conflicts", []) if isinstance(item, dict))
+
+
+def _confidence_score_payload(extracted_documents: list[dict[str, Any]]) -> dict[str, Any]:
+    documents: list[dict[str, Any]] = []
+    fields: list[dict[str, Any]] = []
+    for document in extracted_documents:
+        documents.append(
+            {
+                "document_id": document.get("document_id", ""),
+                "category": document.get("category", ""),
+                "filename": document.get("filename", ""),
+                "extraction_confidence": document.get("extraction_confidence"),
+                "document_quality_score": document.get("document_quality_score"),
+                "status_label": _confidence_status(document.get("extraction_confidence")),
+            }
+        )
+        for ref in document.get("evidence", []) or []:
+            if not isinstance(ref, dict) or not ref.get("field_name"):
+                continue
+            fields.append(
+                {
+                    "document_id": document.get("document_id", ""),
+                    "document_category": document.get("category", ""),
+                    "filename": document.get("filename", ""),
+                    "field_name": ref.get("field_name"),
+                    "value": ref.get("quote"),
+                    "confidence": ref.get("confidence"),
+                    "source": ref.get("source"),
+                    "status_labels": _field_status_labels(ref, extracted_documents),
+                }
+            )
+    return {"documents": documents, "fields": fields}
+
+
+def _field_status_labels(ref: dict[str, Any], extracted_documents: list[dict[str, Any]]) -> list[str]:
+    labels = ["AI extracted" if ref.get("source") != "user_correction" else "user corrected"]
+    value = _norm_text(ref.get("quote"))
+    field_name = str(ref.get("field_name") or "")
+    matches = 0
+    for document in extracted_documents:
+        for candidate in document.get("evidence", []) or []:
+            if isinstance(candidate, dict) and candidate.get("field_name") == field_name and _norm_text(candidate.get("quote")) == value:
+                matches += 1
+    if matches > 1:
+        labels.append("matched across documents")
+    return labels
+
+
+def _confidence_status(value: Any) -> str:
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return "confidence not recorded"
+    if score >= 0.8:
+        return "high confidence"
+    if score >= 0.55:
+        return "medium confidence"
+    return "manual review required"
+
+
+def _trust_evidence_panel(
+    *,
+    risk_factors: list[dict[str, Any]],
+    extracted_documents: list[dict[str, Any]],
+    official_search: dict[str, Any],
+    gazette: dict[str, Any],
+) -> list[dict[str, Any]]:
+    document_labels = {
+        str(document.get("document_id")): f"{_label(document.get('category', 'Document'))}: {document.get('filename') or 'Uploaded file'}"
+        for document in extracted_documents
+        if document.get("document_id")
+    }
+    rows: list[dict[str, Any]] = []
+    for factor in risk_factors:
+        refs = _factor_evidence_refs(factor)
+        first_ref = refs[0] if refs else {}
+        evidence = factor.get("evidence") if isinstance(factor.get("evidence"), dict) else {}
+        document_id = str(first_ref.get("document_id") or "")
+        compared_value = _compared_value_for_factor(factor, official_search, gazette)
+        extracted_value = _extracted_value_for_factor(factor, refs)
+        confidence = _mean_float([ref.get("confidence") for ref in refs if isinstance(ref, dict)])
+        rows.append(
+            {
+                "risk_code": factor.get("code"),
+                "risk_label": factor.get("label"),
+                "what_detected": factor.get("explanation") or evidence.get("explanation") or factor.get("label"),
+                "document_caused": document_labels.get(document_id)
+                or _label(first_ref.get("document_category") or evidence.get("required_document") or "Case evidence"),
+                "document_id": document_id or None,
+                "extracted_value": extracted_value,
+                "compared_value": compared_value,
+                "confidence_score": confidence if confidence is not None else _factor_confidence(factor),
+                "recommended_action": factor.get("recommendation"),
+            }
+        )
+    return rows
+
+
+def _attach_trust_evidence(risk_factors: list[dict[str, Any]], panel: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_code = {row.get("risk_code"): row for row in panel}
+    output: list[dict[str, Any]] = []
+    for factor in risk_factors:
+        enriched = dict(factor)
+        enriched["trust_evidence"] = by_code.get(factor.get("code"))
+        output.append(enriched)
+    return output
+
+
+def _factor_evidence_refs(factor: dict[str, Any]) -> list[dict[str, Any]]:
+    evidence = factor.get("evidence")
+    refs: list[Any] = []
+    refs.extend(factor.get("evidence_refs", []) or [])
+    if isinstance(evidence, dict):
+        refs.extend(evidence.get("evidence_refs", []) or [])
+        refs.extend(evidence.get("evidence", []) or [])
+    return [ref for ref in refs if isinstance(ref, dict)]
+
+
+def _extracted_value_for_factor(factor: dict[str, Any], refs: list[dict[str, Any]]) -> str:
+    for ref in refs:
+        value = ref.get("quote") or ref.get("value") or ref.get("text_snippet")
+        if value:
+            return str(value)
+    evidence = factor.get("evidence") if isinstance(factor.get("evidence"), dict) else {}
+    for key in ("values", "required_document", "dates", "quality_score", "signals", "notices"):
+        if evidence.get(key):
+            return _display(evidence[key])
+    return "Not recorded"
+
+
+def _compared_value_for_factor(factor: dict[str, Any], official_search: dict[str, Any], gazette: dict[str, Any]) -> str:
+    evidence = factor.get("evidence") if isinstance(factor.get("evidence"), dict) else {}
+    for key in ("values", "official_search_conflicts", "dates"):
+        if evidence.get(key):
+            return _display(evidence[key])
+    code = str(factor.get("code") or "")
+    if code == "gazette_notice_conflict":
+        return _display(gazette.get("notices", []))
+    if code in {"parcel_number_mismatch", "seller_name_mismatch"}:
+        return _display(official_search.get("conflicts", []))
+    return "Compared against uploaded case evidence"
+
+
+def _factor_confidence(factor: dict[str, Any]) -> float | None:
+    evidence = factor.get("evidence") if isinstance(factor.get("evidence"), dict) else {}
+    for key in ("confidence", "confidence_score", "quality_score"):
+        try:
+            return float(evidence[key])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return None
+
+
+def _kiswahili_summaries(
+    *,
+    score: int,
+    band_value: str,
+    warnings: list[dict[str, Any]],
+    next_steps: list[str],
+    missing_documents: list[dict[str, Any]],
+) -> dict[str, str]:
+    warning_count = len(warnings)
+    missing = ", ".join(_label(item.get("category", "")) for item in missing_documents[:4]) or "hakuna iliyoandikwa"
+    steps = "; ".join(next_steps[:3]) or "omba ukaguzi wa mtaalamu kabla ya kuendelea"
+    return {
+        "risk_report": (
+            f"Ripoti inaonyesha alama ya hatari {score}/100 ({band_value}). "
+            "Huu ni uchambuzi wa AI kwa kusaidia uamuzi, si uthibitisho rasmi wa umiliki."
+        ),
+        "warnings": (
+            f"Kabla ya kulipa depositi, kuna onyo {warning_count}. "
+            "Usilipe mpaka ushahidi rasmi na ukaguzi wa mtaalamu ukamilike."
+        ),
+        "next_steps": f"Hatua zinazofuata: {steps}.",
+        "missing_documents": f"Nyaraka zinazokosekana au zinazohitaji kuangaliwa: {missing}.",
+    }
+
+
+def _human_review_workflow(warnings: list[dict[str, Any]], risk_factors: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    warning_codes = {str(warning.get("code")) for warning in warnings}
+    factor_codes = {str(factor.get("code")) for factor in risk_factors}
+    return [
+        {
+            "role": "advocate",
+            "label": "Advocate review",
+            "recommended": bool(warning_codes & {"seller_owner_mismatch", "gazette_possible_conflict", "critical_transaction_risk"})
+            or bool(factor_codes & {"seller_name_mismatch", "power_of_attorney_unverified", "missing_consent_to_transfer"}),
+            "reason": "Use for ownership, seller authority, agreements, consents, POA, and legal transfer conditions.",
+        },
+        {
+            "role": "surveyor",
+            "label": "Surveyor review",
+            "recommended": "boundary_or_mutation_inconsistency" in factor_codes,
+            "reason": "Use for parcel identity, maps, mutation forms, acreage, boundaries, and beacons.",
+        },
+        {
+            "role": "site_visit",
+            "label": "Site visit",
+            "recommended": bool(factor_codes & {"boundary_or_mutation_inconsistency", "duplicate_parcel_number"}),
+            "reason": "Use when the buyer needs physical confirmation of occupation, access, and neighborhood context.",
+        },
+        {
+            "role": "boundary_verification",
+            "label": "Boundary verification",
+            "recommended": bool(factor_codes & {"boundary_or_mutation_inconsistency", "parcel_number_mismatch"}),
+            "reason": "Use when parcel, title, map, mutation, or survey evidence does not line up.",
+        },
+        {
+            "role": "official_search_assistance",
+            "label": "Official search assistance",
+            "recommended": bool(warning_codes & {"search_certificate_missing", "seller_owner_mismatch"})
+            or "stale_search_certificate" in factor_codes,
+            "reason": "Use to obtain or refresh official registry search evidence before funds move.",
+        },
+    ]
 
 
 def _evidence_references(
@@ -989,6 +1621,39 @@ def _first_extracted_value(extracted_documents: list[dict[str, Any]], field_name
         if value:
             return str(value)
     return ""
+
+
+def _parse_date(value: Any) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def _names_match(left: str, right: str) -> bool:
+    left_key = _norm_text(left)
+    right_key = _norm_text(right)
+    if not left_key or not right_key:
+        return False
+    return left_key == right_key or SequenceMatcher(None, left_key, right_key).ratio() >= 0.86
+
+
+def _norm_text(value: Any) -> str:
+    return re.sub(r"[^A-Z0-9]+", "", str(value or "").upper())
+
+
+def _mean_float(values: list[Any]) -> float | None:
+    clean: list[float] = []
+    for value in values:
+        try:
+            clean.append(float(value))
+        except (TypeError, ValueError):
+            continue
+    if not clean:
+        return None
+    return round(sum(clean) / len(clean), 2)
 
 
 def _money(value: Any) -> str:

@@ -99,3 +99,6 @@ class RiskFactorCode(StrEnum):
 class ReviewRole(StrEnum):
     ADVOCATE = "advocate"
     SURVEYOR = "surveyor"
+    SITE_VISIT = "site_visit"
+    BOUNDARY_VERIFICATION = "boundary_verification"
+    OFFICIAL_SEARCH_ASSISTANCE = "official_search_assistance"

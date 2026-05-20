@@ -63,6 +63,8 @@ class IntakeAgentInput(BaseModel):
     seller_name: str = ""
     parcel_number_claimed: str = ""
     location_county: str = ""
+    location: str = ""
+    title_number: str = ""
     preferred_language: str = "en"
     payment_before_verification: bool = False
     documents: list[DocumentDescriptor] = Field(default_factory=list)
@@ -75,6 +77,8 @@ class CaseProfile(BaseModel):
     seller_name: str = ""
     parcel_number_claimed: str = ""
     county: str = ""
+    location: str = ""
+    title_number: str = ""
     preferred_language: str = "en"
     payment_before_verification: bool = False
     missing_inputs: list[str] = Field(default_factory=list)

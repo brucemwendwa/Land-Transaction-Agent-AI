@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import { useAppAuth } from "@/lib/auth";
 import {
   AlertTriangle,
+  BadgeCheck,
+  ClipboardCheck,
   Download,
   FileText,
   FileWarning,
@@ -22,6 +24,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
+import { CaseAgentChat } from "@/components/case-agent-chat";
 import { ProgressTracker } from "@/components/progress-tracker";
 import { RiskMeter } from "@/components/risk-meter";
 import { StatusBadge, statusToneFromValue } from "@/components/status-badge";
@@ -30,7 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingPanel, SuccessState } from "@/components/state-views";
-import { apiFetch, apiUrl, type ApiReport, type ApiRiskFactor } from "@/lib/api";
+import { apiFetch, apiUrl, type ApiReport, type ApiRiskFactor, type BeforeDepositWarning, type HumanReviewOption, type TrustEvidenceRow, type VerificationStatusLabel } from "@/lib/api";
 import { cn, formatDate } from "@/lib/utils";
 
 type ReportRecord = Record<string, unknown>;
@@ -204,6 +207,12 @@ export default function ReportPage() {
 
             {downloaded ? <SuccessState message="PDF downloaded." /> : null}
 
+            <BeforeDepositPanel warnings={content.before_deposit_warnings ?? []} />
+
+            <ReportSection icon={BadgeCheck} title="Verification status system">
+              <VerificationStatusLabels labels={content.verification_status_labels ?? []} />
+            </ReportSection>
+
             <ReportSection icon={FileText} title="Case summary">
               <KeyValueGrid values={content.case_summary} />
             </ReportSection>
@@ -243,8 +252,25 @@ export default function ReportPage() {
               </ReportSection>
             </div>
 
+            <div className="grid gap-5 lg:grid-cols-2">
+              <ReportSection icon={Search} title="Gazette risk intelligence">
+                <KeyValueGrid values={content.gazette_risk_intelligence} />
+              </ReportSection>
+              <ReportSection icon={ClipboardCheck} title="Search certificate intelligence">
+                <KeyValueGrid values={content.search_certificate_intelligence} />
+              </ReportSection>
+            </div>
+
             <ReportSection icon={Scale} title="Detailed risk factors">
               <RiskFactorList factors={riskFactors} />
+            </ReportSection>
+
+            <ReportSection icon={TableProperties} title="Trust evidence panel">
+              <TrustEvidencePanel rows={content.trust_evidence_panel ?? []} />
+            </ReportSection>
+
+            <ReportSection icon={UserRoundCheck} title="Human expert review workflow">
+              <HumanReviewWorkflow caseId={params.caseId} options={content.human_review_workflow ?? []} />
             </ReportSection>
 
             <ReportSection icon={ShieldCheck} title="Recommended next actions">
@@ -270,9 +296,7 @@ export default function ReportPage() {
                 </p>
               </ReportSection>
               <ReportSection icon={Languages} title="Optional Kiswahili summary">
-                <p className="text-sm leading-6 text-muted-foreground">
-                  {content.kiswahili_summary || content.summary.kiswahili || "Not requested for this case."}
-                </p>
+                <KiswahiliSummary values={content.kiswahili_summaries} fallback={content.kiswahili_summary || content.summary.kiswahili} />
               </ReportSection>
             </div>
 
@@ -320,6 +344,7 @@ export default function ReportPage() {
                 ) : null}
               </CardContent>
             </Card>
+            <CaseAgentChat caseId={params.caseId} />
             <Card className="border-primary/30 bg-primary/5">
               <CardContent className="flex gap-3 p-4">
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
@@ -392,6 +417,147 @@ function ReportSection({
   );
 }
 
+function BeforeDepositPanel({ warnings }: { warnings: BeforeDepositWarning[] }) {
+  const critical = warnings.filter((warning) => warning.severity === "critical").length;
+  return (
+    <Card className={warnings.length ? "border-red-300 bg-red-50" : "border-emerald-300 bg-emerald-50"}>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <AlertTriangle className={warnings.length ? "h-5 w-5 text-red-700" : "h-5 w-5 text-emerald-700"} aria-hidden="true" />
+          Before you pay deposit
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {warnings.length ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="danger">{warnings.length} warning{warnings.length === 1 ? "" : "s"}</Badge>
+              {critical ? <Badge variant="danger">{critical} critical</Badge> : null}
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {warnings.map((warning) => (
+                <div key={warning.code} className="rounded-md border border-red-200 bg-background/75 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <h3 className="font-semibold text-red-950">{warning.label}</h3>
+                    <Badge variant={warning.severity === "critical" ? "danger" : "warning"}>{warning.severity}</Badge>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{warning.explanation}</p>
+                  <p className="mt-2 text-sm font-medium leading-6">{warning.recommended_action}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm leading-6 text-emerald-950">
+            No automated deposit-stopper warning was triggered. Continue with official registry checks and professional review before funds move.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function VerificationStatusLabels({ labels }: { labels: VerificationStatusLabel[] }) {
+  if (!labels.length) return <p className="text-sm text-muted-foreground">No verification labels were recorded.</p>;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {labels.map((item) => (
+        <div key={item.code} className="rounded-md border bg-background/70 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="font-medium">{item.label}</div>
+            <StatusBadge tone={item.applies ? statusToneForLabel(item) : "not_verified"} label={item.applies ? "Recorded" : "Not recorded"} />
+          </div>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">{item.explanation}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TrustEvidencePanel({ rows }: { rows: TrustEvidenceRow[] }) {
+  if (!rows.length) return <p className="text-sm text-muted-foreground">No risk-factor evidence rows were recorded.</p>;
+  return (
+    <div className="grid gap-3">
+      {rows.map((row, index) => (
+        <article key={`${row.risk_code}-${index}`} className="rounded-md border bg-background/70 p-4">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+            <div>
+              <h3 className="font-semibold">{row.risk_label}</h3>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">{row.what_detected}</p>
+            </div>
+            <StatusBadge tone="neutral" label={row.confidence_score === null ? "Confidence n/a" : `${Math.round(row.confidence_score * 100)}% confidence`} />
+          </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
+            <EvidenceCell label="Document caused it" value={row.document_caused} />
+            <EvidenceCell label="Extracted value" value={row.extracted_value} />
+            <EvidenceCell label="Compared value" value={row.compared_value} />
+            <EvidenceCell label="Recommended action" value={row.recommended_action} />
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function EvidenceCell({ label: title, value }: { label: string; value: unknown }) {
+  return (
+    <div className="rounded-md border bg-muted/30 p-3">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
+      <div className="mt-1 break-words text-sm leading-6">{formatValue(value)}</div>
+    </div>
+  );
+}
+
+function HumanReviewWorkflow({ caseId, options }: { caseId: string; options: HumanReviewOption[] }) {
+  if (!options.length) return <p className="text-sm text-muted-foreground">No review workflow options were recorded.</p>;
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {options.map((option) => (
+        <div key={option.role} className="rounded-md border bg-background/70 p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="font-medium">{option.label}</h3>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">{option.reason}</p>
+            </div>
+            {option.recommended ? <Badge variant="warning">Recommended</Badge> : null}
+          </div>
+          <Button asChild size="sm" variant={option.recommended ? "default" : "outline"} className="mt-3">
+            <Link href={`/cases/${caseId}/review?role=${option.role}&from=report`}>Request</Link>
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function KiswahiliSummary({
+  fallback,
+  values
+}: {
+  fallback?: string;
+  values?: ApiReport["content"]["kiswahili_summaries"];
+}) {
+  if (!values && !fallback) return <p className="text-sm leading-6 text-muted-foreground">Not requested for this case.</p>;
+  const entries = values
+    ? [
+        ["Risk report", values.risk_report],
+        ["Warnings", values.warnings],
+        ["Next steps", values.next_steps],
+        ["Missing documents", values.missing_documents]
+      ]
+    : [["Summary", fallback ?? ""]];
+  return (
+    <div className="space-y-2">
+      {entries.map(([title, body]) => (
+        <div key={title} className="rounded-md border bg-background/70 p-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
+          <p className="mt-1 text-sm leading-6">{body}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function KeyValueGrid({ values }: { values?: ReportRecord }) {
   const entries = Object.entries(values ?? {});
   if (!entries.length) return <p className="text-sm text-muted-foreground">No information recorded.</p>;
@@ -445,12 +611,25 @@ function ExtractedInformation({ items }: { items: NonNullable<ApiReport["content
     <div className="space-y-3">
       {items.map((item, index) => (
         <div key={item.document_id ?? index} className="rounded-md border bg-background/70 p-4">
-          <h3 className="font-medium">{item.document_label ?? "Uploaded document"}</h3>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <h3 className="font-medium">{item.document_label ?? "Uploaded document"}</h3>
+            {item.extraction_confidence !== null && item.extraction_confidence !== undefined ? (
+              <StatusBadge tone={confidenceTone(item.extraction_confidence)} label={`${Math.round(item.extraction_confidence * 100)}% extraction confidence`} />
+            ) : null}
+          </div>
           <dl className="mt-3 grid gap-2 sm:grid-cols-2">
             {(item.fields ?? []).slice(0, 12).map((field) => (
               <div key={`${item.document_id}-${field.name}`} className="rounded-md bg-muted/40 p-2">
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label(field.name)}</dt>
+                <dt className="flex flex-wrap items-center justify-between gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <span>{label(field.name)}</span>
+                  {field.confidence !== null && field.confidence !== undefined ? <span>{Math.round(field.confidence * 100)}%</span> : null}
+                </dt>
                 <dd className="mt-1 break-words text-sm">{formatValue(field.value)}</dd>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {(field.status_labels ?? ["AI extracted"]).map((status) => (
+                    <Badge key={status} variant="outline" className="text-[10px]">{status}</Badge>
+                  ))}
+                </div>
               </div>
             ))}
           </dl>
@@ -533,6 +712,13 @@ function RiskFactorList({ factors }: { factors: ApiRiskFactor[] }) {
               <div className="mt-2 space-y-1 text-sm text-muted-foreground">{renderEvidence(factor.evidence)}</div>
             </div>
           </div>
+          {factor.trust_evidence ? (
+            <div className="mt-3 grid gap-2 rounded-md border bg-background/75 p-3 sm:grid-cols-3">
+              <EvidenceCell label="Document" value={factor.trust_evidence.document_caused} />
+              <EvidenceCell label="Extracted" value={factor.trust_evidence.extracted_value} />
+              <EvidenceCell label="Compared" value={factor.trust_evidence.compared_value} />
+            </div>
+          ) : null}
         </article>
       ))}
     </div>
@@ -543,6 +729,19 @@ function severityTone(severity: string) {
   if (severity === "critical" || severity === "high") return "high_risk" as const;
   if (severity === "medium") return "needs_review" as const;
   return "not_verified" as const;
+}
+
+function statusToneForLabel(label: VerificationStatusLabel) {
+  if (label.tone === "danger") return "high_risk" as const;
+  if (label.tone === "warning") return "needs_review" as const;
+  if (label.tone === "success") return "verified" as const;
+  return "neutral" as const;
+}
+
+function confidenceTone(score: number) {
+  if (score < 0.45) return "needs_review" as const;
+  if (score < 0.7) return "not_verified" as const;
+  return "verified" as const;
 }
 
 function severityClass(severity: string) {

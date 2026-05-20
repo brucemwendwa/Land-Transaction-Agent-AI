@@ -56,6 +56,8 @@ export interface ApiCase {
   seller_name: string;
   parcel_number_claimed: string;
   location_county: string;
+  location: string;
+  title_number: string;
   preferred_language: string;
   payment_before_verification: boolean;
   status: string;
@@ -73,7 +75,45 @@ export interface ApiRiskFactor {
   points: number;
   evidence: Record<string, unknown>;
   evidence_refs?: Array<Record<string, unknown>>;
+  trust_evidence?: TrustEvidenceRow | null;
   recommendation: string;
+}
+
+export interface TrustEvidenceRow {
+  risk_code: string;
+  risk_label: string;
+  what_detected: string;
+  document_caused: string;
+  document_id: string | null;
+  extracted_value: string;
+  compared_value: string;
+  confidence_score: number | null;
+  recommended_action: string;
+}
+
+export interface VerificationStatusLabel {
+  code: string;
+  label: string;
+  applies: boolean;
+  status: string;
+  tone: string;
+  explanation: string;
+}
+
+export interface BeforeDepositWarning {
+  code: string;
+  label: string;
+  severity: string;
+  triggered: boolean;
+  explanation: string;
+  recommended_action: string;
+}
+
+export interface HumanReviewOption {
+  role: "advocate" | "surveyor" | "site_visit" | "boundary_verification" | "official_search_assistance";
+  label: string;
+  recommended: boolean;
+  reason: string;
 }
 
 export interface ApiReport {
@@ -105,7 +145,9 @@ export interface ApiReport {
     extracted_information?: Array<{
       document_id?: string;
       document_label?: string;
-      fields?: Array<{ name: string; value: unknown }>;
+      extraction_confidence?: number | null;
+      document_quality_score?: number | null;
+      fields?: Array<{ name: string; value: unknown; confidence?: number | null; source?: string; status_labels?: string[] }>;
     }>;
     missing_documents?: Array<Record<string, unknown>>;
     inconsistencies_found?: Array<Record<string, unknown>>;
@@ -113,10 +155,25 @@ export interface ApiReport {
       notices?: Array<Record<string, unknown>>;
       query_terms?: string[];
     };
+    gazette_risk_intelligence?: Record<string, unknown> & {
+      status?: string;
+      query_terms?: string[];
+      searched_fields?: string[];
+      recommended_action?: string;
+    };
     official_search_certificate_review?: Record<string, unknown> & {
       certificate?: Record<string, unknown> | null;
       conflicts?: Array<Record<string, unknown>>;
     };
+    search_certificate_intelligence?: Record<string, unknown>;
+    verification_status_labels?: VerificationStatusLabel[];
+    before_deposit_warnings?: BeforeDepositWarning[];
+    trust_evidence_panel?: TrustEvidenceRow[];
+    confidence_scores?: {
+      documents: Array<Record<string, unknown>>;
+      fields: Array<Record<string, unknown>>;
+    };
+    human_review_workflow?: HumanReviewOption[];
     risk_score?: number;
     risk_level?: string;
     risk_factors: ApiRiskFactor[];
@@ -124,6 +181,12 @@ export interface ApiReport {
     recommended_next_steps: string[];
     plain_english_explanation?: string;
     kiswahili_summary?: string;
+    kiswahili_summaries?: {
+      risk_report: string;
+      warnings: string;
+      next_steps: string;
+      missing_documents: string;
+    };
     legal_disclaimer: string;
     appendix_evidence_references?: Array<Record<string, unknown>>;
   };
@@ -133,6 +196,20 @@ export interface ApiReport {
   download_url: string;
   is_stale: boolean;
   stale_reasons: string[];
+}
+
+export interface ApiCaseAgentAnswer {
+  answer: string;
+  citations: Array<{
+    source_type: string;
+    title: string;
+    excerpt: string;
+    confidence: number | null;
+    document_id: string | null;
+    metadata: Record<string, unknown>;
+  }>;
+  limitations: string[];
+  verification_status: string;
 }
 
 export interface ApiGazetteSearch {

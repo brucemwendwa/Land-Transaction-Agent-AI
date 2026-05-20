@@ -25,6 +25,11 @@ def test_report_contains_legal_safety_disclaimer() -> None:
     assert content["warning"] == "AI-assisted, not official verification"
     assert content["case_summary"]["risk_score"] == 25
     assert "appendix_evidence_references" in content
+    assert "verification_status_labels" in content
+    assert "before_deposit_warnings" in content
+    assert "trust_evidence_panel" in content
+    assert content["search_certificate_intelligence"]["uploaded"] is False
+    assert content["kiswahili_summaries"]["risk_report"].startswith("Ripoti")
     pdf = render_report_pdf(content)
     assert pdf.startswith(b"%PDF")
 
@@ -82,3 +87,36 @@ def test_pdf_report_contains_buyer_critical_sections_and_evidence() -> None:
     assert "Seller does not match official owner" in text
     assert "Legal Disclaimer" in text
     assert "Grace Achieng" in text
+
+
+def test_report_exposes_trust_evidence_and_deposit_warning() -> None:
+    case = LandCase(
+        id="case-1",
+        owner_user_id="user-1",
+        title="Deposit warning parcel",
+        seller_name="John Mwangi",
+    )
+    factor = RiskFactor(
+        case_id=case.id,
+        code=RiskFactorCode.MISSING_OFFICIAL_LAND_SEARCH,
+        label="Missing official land search",
+        severity="high",
+        points=20,
+        evidence={"required_document": "land_search_certificate", "explanation": "Search certificate missing."},
+        recommendation="Obtain a fresh official land search before proceeding.",
+    )
+
+    content = build_report_content(
+        case=case,
+        score=45,
+        band=RiskBand.MEDIUM,
+        verification_status=VerificationStatus.MANUAL_REVIEW_REQUIRED,
+        factors=[factor],
+        language="sw",
+    )
+
+    assert any(item["code"] == "search_certificate_missing" for item in content["before_deposit_warnings"])
+    assert content["trust_evidence_panel"][0]["risk_code"] == "missing_official_land_search"
+    assert content["risk_factors"][0]["trust_evidence"]["recommended_action"]
+    assert any(item["label"] == "not verified from official registry" for item in content["verification_status_labels"])
+    assert content["kiswahili_summary"]

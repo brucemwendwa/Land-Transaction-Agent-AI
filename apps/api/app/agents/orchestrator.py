@@ -140,6 +140,8 @@ async def run_case_analysis(
             seller_name=case.seller_name,
             parcel_number_claimed=case.parcel_number_claimed,
             location_county=case.location_county,
+            location=case.location,
+            title_number=case.title_number,
             preferred_language=case.preferred_language,
             payment_before_verification=case.payment_before_verification,
             documents=descriptors,

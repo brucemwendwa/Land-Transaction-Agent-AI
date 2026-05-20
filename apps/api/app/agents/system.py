@@ -81,6 +81,8 @@ class IntakeAgent:
             seller_name=payload.seller_name.strip(),
             parcel_number_claimed=payload.parcel_number_claimed.strip(),
             county=payload.location_county.strip(),
+            location=payload.location.strip(),
+            title_number=payload.title_number.strip(),
             preferred_language=payload.preferred_language,
             payment_before_verification=payload.payment_before_verification,
             missing_inputs=missing_inputs,
@@ -354,7 +356,7 @@ class OfficialSearchAgent:
             date_issued=date_candidates[0] if date_candidates else None,
             evidence=certificate_doc.evidence,
         )
-        conflicts = _official_search_conflicts(certificate, payload.extracted_documents)
+        conflicts = _official_search_conflicts(certificate, payload.extracted_documents, payload.case_profile)
         status = VerificationStatus.CONFLICT_FOUND if conflicts else VerificationStatus.NOT_VERIFIED_FROM_OFFICIAL_SOURCE
         return OfficialSearchAgentOutput(
             official_search_status="parsed",
@@ -818,7 +820,9 @@ def _date_findings(documents: list[ExtractedDocumentFields]) -> list[DateSequenc
 def _gazette_query_terms(profile: CaseProfile, documents: list[ExtractedDocumentFields]) -> list[str]:
     terms = [
         profile.parcel_number_claimed,
+        profile.title_number,
         profile.county,
+        profile.location,
     ]
     for document in documents:
         terms.extend(
@@ -857,6 +861,7 @@ async def _search_gazette_adapter(adapter: Any, query_terms: list[str]) -> Verif
 def _official_search_conflicts(
     certificate: ParsedOfficialSearchCertificate,
     documents: list[ExtractedDocumentFields],
+    profile: CaseProfile,
 ) -> list[FieldMismatch]:
     conflicts: list[FieldMismatch] = []
     title_values = {document.title_number for document in documents if document.title_number}
@@ -884,6 +889,26 @@ def _official_search_conflicts(
                 severity="high",
                 values=sorted(parcel_values),
                 explanation="The parcel number on the uploaded search certificate differs from another uploaded document.",
+                evidence=certificate.evidence,
+            )
+        )
+    owner_values = {_norm(owner) for owner in certificate.owner_names if owner.strip()}
+    seller_values = {
+        _norm(seller)
+        for document in documents
+        for seller in document.seller_names
+        if seller.strip()
+    }
+    if profile.seller_name.strip():
+        seller_values.add(_norm(profile.seller_name))
+    if owner_values and seller_values and not owner_values.intersection(seller_values):
+        conflicts.append(
+            FieldMismatch(
+                code="seller_name_mismatch",
+                label="Search certificate owner does not match seller",
+                severity="critical",
+                values=sorted(owner_values | seller_values),
+                explanation="Owner names parsed from the uploaded search certificate do not match the seller named in case evidence.",
                 evidence=certificate.evidence,
             )
         )
@@ -921,6 +946,8 @@ def _case_like(profile: CaseProfile) -> Any:
         seller_name = profile.seller_name
         parcel_number_claimed = profile.parcel_number_claimed
         location_county = profile.county
+        location = profile.location
+        title_number = profile.title_number
         preferred_language = profile.preferred_language
 
     return CaseLike()

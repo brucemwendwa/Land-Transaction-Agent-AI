@@ -1,20 +1,85 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, CheckCircle2, SearchCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, BookOpenCheck, Clock3, FileSearch, Fingerprint, Gavel, Landmark, ShieldAlert, UsersRound } from "lucide-react";
 import { motion } from "framer-motion";
 import { PublicHeader } from "@/components/public-header";
-import { RiskMeter } from "@/components/risk-meter";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-const examples = [
-  { title: "Parcel number mismatch", body: "The title deed says LR 209/1234 while the sale agreement says LR 209/1234/2.", severity: "High", score: 74 },
-  { title: "Stale official search", body: "A search certificate is older than 30 days, so new cautions or charges may not be reflected.", severity: "Medium", score: 48 },
-  { title: "Gazette conflict", body: "A Gazette notice references loss, rectification, restriction, or revocation for a related parcel.", severity: "High", score: 78 },
-  { title: "Payment before verification", body: "The buyer has released funds before official and professional checks are complete.", severity: "Critical", score: 91 }
+const fraudPatterns = [
+  {
+    title: "Fake seller",
+    icon: Fingerprint,
+    severity: "critical",
+    detectedBy: "Seller name, ID, KRA PIN, signatures, and search-certificate owner comparison.",
+    buyerMove: "Pause payment and ask an advocate to confirm the seller's authority and identity."
+  },
+  {
+    title: "Duplicate title",
+    icon: FileSearch,
+    severity: "critical",
+    detectedBy: "Repeated parcel/title references, inconsistent title numbers, and duplicate parcel signals across cases.",
+    buyerMove: "Insist on a fresh official search and professional title inspection before signing."
+  },
+  {
+    title: "Old search certificate",
+    icon: Clock3,
+    severity: "high",
+    detectedBy: "Search-certificate issue date older than 30 days.",
+    buyerMove: "Request a fresh search certificate before paying a deposit."
+  },
+  {
+    title: "Missing consent",
+    icon: Gavel,
+    severity: "high",
+    detectedBy: "Missing consent to transfer or spousal consent in the due-diligence checklist.",
+    buyerMove: "Confirm consent requirements and collect signed consent before completion."
+  },
+  {
+    title: "Multiple owners but one signer",
+    icon: UsersRound,
+    severity: "high",
+    detectedBy: "Owner names from title/search evidence compared with seller signatures and agreement parties.",
+    buyerMove: "Require all owners to sign or produce properly verified authority."
+  },
+  {
+    title: "Land under caution, restriction, or charge",
+    icon: ShieldAlert,
+    severity: "critical",
+    detectedBy: "Encumbrance, caution, restriction, charge, or dispute terms extracted from the search certificate.",
+    buyerMove: "Resolve the encumbrance or restriction with counsel before funds move."
+  },
+  {
+    title: "Altered documents",
+    icon: AlertTriangle,
+    severity: "critical",
+    detectedBy: "Poor image quality, overwritten text, inconsistent font, missing seal, or visual suspicion signals.",
+    buyerMove: "Ask for original documents and manual professional inspection."
+  },
+  {
+    title: "Suspicious payment pressure",
+    icon: Landmark,
+    severity: "high",
+    detectedBy: "Payment-before-verification flag or critical-risk report state.",
+    buyerMove: "Do not release funds until official and professional checks are complete."
+  },
+  {
+    title: "Power of attorney misuse",
+    icon: BookOpenCheck,
+    severity: "critical",
+    detectedBy: "Power of attorney uploaded without key date, identity, signature, seal, or authority evidence.",
+    buyerMove: "Verify the power of attorney with an advocate and relevant registry."
+  }
+];
+
+const principles = [
+  "AI extraction is evidence, not ownership proof.",
+  "A Gazette no-match is not official registry verification.",
+  "Every serious warning should point to the document and value that caused it.",
+  "Fresh official search evidence and human experts still matter before payment."
 ];
 
 export default function RiskExamplesPage() {
@@ -23,10 +88,10 @@ export default function RiskExamplesPage() {
       <PublicHeader />
       <section className="border-b bg-muted/40 py-16">
         <div className="section-shell">
-          <Badge variant="secondary">Risk engine examples</Badge>
-          <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight sm:text-5xl">Risk Examples</h1>
+          <Badge variant="secondary">Fraud pattern library</Badge>
+          <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight sm:text-5xl">Common Kenyan Land Fraud Risks</h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
-            These examples show how the system explains risk without pretending to verify ownership unless official evidence is available.
+            Learn what Mradi wa Ardhi looks for when it reviews uploaded land transaction evidence. The system explains risk signals without claiming official ownership verification unless official evidence exists.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <Button asChild><Link href="/cases/new">Start Land Risk Check <ArrowRight className="h-4 w-4" /></Link></Button>
@@ -36,42 +101,55 @@ export default function RiskExamplesPage() {
       </section>
 
       <section className="py-16">
-        <div className="section-shell">
-          <div className="grid gap-4 md:grid-cols-2">
-            {examples.map((example, index) => (
-              <motion.div
-                key={example.title}
+        <div className="section-shell grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {fraudPatterns.map((pattern, index) => {
+            const Icon = pattern.icon;
+            return (
+              <motion.article
+                key={pattern.title}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.04 }}
+                transition={{ delay: index * 0.035 }}
               >
                 <Card className="premium-panel h-full">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3">
-                      <CardTitle className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" />
-                        {example.title}
-                      </CardTitle>
-                      <StatusBadge tone={example.severity === "Critical" || example.severity === "High" ? "high_risk" : "needs_review"} label={example.severity} />
+                      <div>
+                        <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
+                        <CardTitle className="mt-3">{pattern.title}</CardTitle>
+                      </div>
+                      <StatusBadge tone={pattern.severity === "critical" ? "high_risk" : "needs_review"} label={pattern.severity} />
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-5">
-                    <p className="text-sm leading-6 text-muted-foreground">{example.body}</p>
-                    <RiskMeter score={example.score} band={example.severity.toLowerCase()} />
+                  <CardContent className="space-y-4">
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Detected through</div>
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">{pattern.detectedBy}</p>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Buyer move</div>
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">{pattern.buyerMove}</p>
+                    </div>
                   </CardContent>
                 </Card>
-              </motion.div>
-            ))}
+              </motion.article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="border-y bg-muted/40 py-16">
+        <div className="section-shell grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+          <div>
+            <p className="text-sm font-medium text-primary">Trust principles</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight">Competition-ready means explainable, careful, and honest.</h2>
           </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="flex items-start gap-3 rounded-lg border bg-emerald-500/10 p-5 text-sm leading-6 text-emerald-800 dark:text-emerald-200">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-              Every report includes evidence, status, and next steps so a buyer knows whether to pause, request a fresh search, or ask for professional review.
-            </div>
-            <div className="flex items-start gap-3 rounded-lg border bg-primary/5 p-5 text-sm leading-6 text-muted-foreground">
-              <SearchCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-              Official-source status is shown separately from AI extraction confidence to avoid misleading the buyer.
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {principles.map((principle) => (
+              <div key={principle} className="rounded-lg border bg-background p-4 text-sm leading-6 text-muted-foreground">
+                {principle}
+              </div>
+            ))}
           </div>
         </div>
       </section>

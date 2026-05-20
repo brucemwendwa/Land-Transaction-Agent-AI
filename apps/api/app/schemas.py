@@ -344,6 +344,26 @@ class ReportGenerationRequest(RequestModel):
         return self
 
 
+class CaseAgentQuestionRequest(RequestModel):
+    question: str = Field(min_length=3, max_length=1000)
+
+
+class CaseAgentCitation(BaseModel):
+    source_type: str
+    title: str
+    excerpt: str
+    confidence: float | None = None
+    document_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class CaseAgentAnswerResponse(BaseModel):
+    answer: str
+    citations: list[CaseAgentCitation]
+    limitations: list[str]
+    verification_status: str
+
+
 class DeleteCaseResponse(BaseModel):
     status: str
     case_id: str
