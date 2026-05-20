@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 44 33% 97%;
+  --foreground: 166 28% 9%;
+  --card: 0 0% 100%;
+  --card-foreground: 166 28% 9%;
+  --primary: 162 55% 19%;
+  --primary-foreground: 44 33% 97%;
+  --secondary: 183 24% 90%;
+  --secondary-foreground: 166 28% 11%;
+  --muted: 42 24% 92%;
+  --muted-foreground: 168 12% 38%;
+  --accent: 38 86% 50%;
+  --accent-foreground: 166 28% 9%;
+  --destructive: 4 74% 44%;
+  --destructive-foreground: 44 33% 97%;
+  --border: 42 18% 83%;
+  --input: 42 18% 83%;
+  --ring: 162 55% 19%;
+}
+
+.dark {
+  --background: 164 25% 7%;
+  --foreground: 44 30% 94%;
+  --card: 164 22% 10%;
+  --card-foreground: 44 30% 94%;
+  --primary: 43 78% 58%;
+  --primary-foreground: 164 25% 7%;
+  --secondary: 170 18% 17%;
+  --secondary-foreground: 44 30% 94%;
+  --muted: 168 17% 14%;
+  --muted-foreground: 45 14% 70%;
+  --accent: 178 48% 43%;
+  --accent-foreground: 164 25% 7%;
+  --destructive: 4 66% 52%;
+  --destructive-foreground: 44 30% 94%;
+  --border: 168 17% 20%;
+  --input: 168 17% 20%;
+  --ring: 43 78% 58%;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+::selection {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.hero-photo {
+  background-image:
+    linear-gradient(90deg, rgba(5, 24, 19, 0.92), rgba(5, 24, 19, 0.68), rgba(5, 24, 19, 0.3)),
+    url("https://images.unsplash.com/photo-1489392191049-fc10c97e64b6?auto=format&fit=crop&w=2400&q=80");
+  background-position: center;
+  background-size: cover;
+}
+
+.premium-panel {
+  @apply border bg-card/95 shadow-[0_18px_70px_rgba(14,35,28,0.08)] backdrop-blur;
+}
+
+.dark .premium-panel {
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.28);
+}
+
+.focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+}
+
+.section-shell {
+  @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+}

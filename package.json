@@ -1,0 +1,30 @@
+{
+  "name": "mradi-wa-ardhi",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=20.9.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write .",
+    "api:dev": "pnpm --filter @mradi/api dev",
+    "api:db:migrate": "pnpm --filter @mradi/api db:migrate",
+    "api:db:seed": "pnpm --filter @mradi/api db:seed",
+    "web:dev": "pnpm --filter @mradi/web dev"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "^8.5.14"
+    }
+  }
+}

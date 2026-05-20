@@ -1,0 +1,15 @@
+{
+  "name": "@mradi/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "db:migrate": "alembic upgrade head",
+    "db:revision": "alembic revision --autogenerate",
+    "db:seed": "python3 -m app.db.seed",
+    "build": "python3 -m compileall app",
+    "lint": "ruff check app tests",
+    "test": "python3 -m pytest",
+    "typecheck": "python3 -m mypy app"
+  }
+}

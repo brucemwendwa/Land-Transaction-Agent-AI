@@ -1,0 +1,79 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mradi
+      POSTGRES_PASSWORD: mradi
+      POSTGRES_DB: mradi
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mradi -d mradi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+    env_file:
+      - .env
+    environment:
+      APP_ENV: development
+      AUTH_BYPASS: "true"
+      AUTO_CREATE_TABLES: "false"
+      DATABASE_URL: postgresql+psycopg://mradi:mradi@postgres:5432/mradi
+      FRONTEND_URL: http://localhost:3000
+      BACKEND_URL: http://localhost:8000
+      CORS_ORIGINS: http://localhost:3000
+      STORAGE_BACKEND: local
+      LOCAL_STORAGE_ROOT: /app/local-storage
+    command: ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/api:/app
+      - api-local-storage:/app/local-storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5).read()"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    image: node:22-alpine
+    working_dir: /workspace
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_MAX_UPLOAD_BYTES: "25000000"
+    command: ["sh", "-c", "corepack enable && pnpm install && pnpm --filter @mradi/web dev --hostname 0.0.0.0"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/workspace
+      - pnpm-store:/root/.local/share/pnpm/store
+    depends_on:
+      api:
+        condition: service_healthy
+
+  clamav:
+    image: clamav/clamav:stable
+    profiles: ["security"]
+    ports:
+      - "3310:3310"
+
+volumes:
+  postgres-data:
+  api-local-storage:
+  pnpm-store:

@@ -1,0 +1,77 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { SignedIn, UserButton } from "@clerk/nextjs";
+import { ClipboardList, FileText, Home, LayoutDashboard, ScrollText, Settings, ShieldCheck } from "lucide-react";
+import { motion } from "framer-motion";
+import { ModeToggle } from "@/components/mode-toggle";
+import { cn } from "@/lib/utils";
+
+const links = [
+  { href: "/dashboard", label: "Dashboard", icon: Home },
+  { href: "/cases/new", label: "New case", icon: FileText },
+  { href: "/reviews", label: "Reviews", icon: ShieldCheck },
+  { href: "/admin", label: "Admin", icon: LayoutDashboard },
+  { href: "/audit-log", label: "Audit", icon: ClipboardList },
+  { href: "/settings", label: "Settings", icon: Settings }
+];
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+          <Link href="/dashboard" className="focus-ring flex items-center gap-3 rounded-md font-semibold">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+              <ScrollText className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <span>
+              <span className="block leading-none">Mradi wa Ardhi</span>
+              <span className="hidden text-xs font-normal text-muted-foreground sm:block">Land Transaction Agent</span>
+            </span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <ModeToggle />
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
+          </div>
+        </div>
+      </header>
+      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-5 sm:px-6 md:grid-cols-[238px_1fr] lg:px-8">
+        <nav aria-label="Primary navigation" className="flex gap-2 overflow-auto pb-1 md:sticky md:top-20 md:block md:h-[calc(100vh-6rem)] md:space-y-2 md:overflow-visible md:pb-0">
+          {links.map((link) => {
+            const Icon = link.icon;
+            const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "focus-ring relative flex min-w-fit items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                  active
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <motion.main
+          key={pathname}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="min-w-0"
+        >
+          {children}
+        </motion.main>
+      </div>
+    </div>
+  );
+}

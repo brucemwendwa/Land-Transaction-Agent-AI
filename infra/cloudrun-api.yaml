@@ -1,0 +1,106 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mradi-api
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "20"
+        run.googleapis.com/execution-environment: gen2
+        # Add this annotation when using Cloud SQL:
+        # run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE_NAME
+    spec:
+      containerConcurrency: 40
+      timeoutSeconds: 900
+      serviceAccountName: mradi-api-runtime@PROJECT_ID.iam.gserviceaccount.com
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/mradi/api:latest
+          ports:
+            - name: http1
+              containerPort: 8000
+          env:
+            - name: APP_ENV
+              value: production
+            - name: AUTO_CREATE_TABLES
+              value: "false"
+            - name: FRONTEND_URL
+              value: https://YOUR_VERCEL_DOMAIN
+            - name: BACKEND_URL
+              value: https://YOUR_CLOUD_RUN_DOMAIN
+            - name: CORS_ORIGINS
+              value: https://YOUR_VERCEL_DOMAIN
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mradi-database-url
+                  key: latest
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mradi-auth-secret
+                  key: latest
+            - name: CLERK_ISSUER
+              valueFrom:
+                secretKeyRef:
+                  name: mradi-clerk-issuer
+                  key: latest
+            - name: CLERK_JWKS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mradi-clerk-jwks-url
+                  key: latest
+            - name: CLERK_AUDIENCE
+              value: ""
+            - name: AUTH_BYPASS
+              value: "false"
+            - name: STORAGE_BACKEND
+              value: gcs
+            - name: GCS_BUCKET_NAME
+              value: mradi-prod-documents
+            - name: GOOGLE_CLOUD_PROJECT
+              value: PROJECT_ID
+            - name: GOOGLE_GENAI_USE_VERTEXAI
+              value: "true"
+            - name: VERTEX_AI_LOCATION
+              value: us-central1
+            - name: GEMINI_MODEL
+              value: gemini-2.5-flash
+            - name: DOCUMENT_AI_PROCESSOR_ID
+              value: YOUR_PROCESSOR_ID
+            - name: DOCUMENT_AI_LOCATION
+              value: us
+            - name: ADK_AGENT_CONFIG
+              value: ""
+            - name: RATE_LIMIT_PER_MINUTE
+              value: "120"
+            - name: MAX_UPLOAD_BYTES
+              value: "25000000"
+            - name: ENABLE_MALWARE_SCAN
+              value: "false"
+            - name: LOG_LEVEL
+              value: INFO
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: ""
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
