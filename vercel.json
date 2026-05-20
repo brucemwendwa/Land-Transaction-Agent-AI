@@ -3,6 +3,8 @@
   "framework": "nextjs",
   "buildCommand": "pnpm --filter @mradi/web build",
   "installCommand": "pnpm install --frozen-lockfile",
-  "outputDirectory": "apps/web/.next",
-  "regions": ["iad1"]
+  "outputDirectory": ".next",
+  "regions": [
+    "iad1"
+  ]
 }
