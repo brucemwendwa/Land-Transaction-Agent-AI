@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { ArrowRight, BrainCircuit, ExternalLink, FileSearch, Gavel, Landmark, Newspaper, Scale, ShieldCheck, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
@@ -26,7 +26,7 @@ const agentSteps = [
 
 export default function AnalysisPage() {
   const params = useParams<{ caseId: string }>();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [report, setReport] = useState<ApiReport | null>(null);
   const [gazette, setGazette] = useState<ApiGazetteSearch | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "complete">("idle");

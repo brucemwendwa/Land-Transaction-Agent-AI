@@ -1,10 +1,10 @@
 "use client";
 
-import { UserProfile } from "@clerk/nextjs";
 import { KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthUserProfile } from "@/lib/auth";
 
 export default function SettingsPage() {
   return (
@@ -18,7 +18,7 @@ export default function SettingsPage() {
       </div>
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="overflow-hidden rounded-lg border bg-card p-2 shadow-sm">
-          <UserProfile />
+          <AuthUserProfile />
         </div>
         <aside className="space-y-4">
           <Card className="premium-panel">

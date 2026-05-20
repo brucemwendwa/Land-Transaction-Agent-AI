@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { SignedIn, SignedOut, SignInButton, SignUpButton, useAuth } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -27,7 +25,6 @@ import { Badge } from "@/components/ui/badge";
 import { ModeToggle } from "@/components/mode-toggle";
 import { RiskMeter } from "@/components/risk-meter";
 import { StatusBadge } from "@/components/status-badge";
-import { apiFetch } from "@/lib/api";
 
 const trustCards = [
   { title: "Document intelligence", body: "OCR and vision extraction for titles, IDs, agreements, maps, and consents.", icon: FileSearch },
@@ -98,16 +95,8 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-2">
             <ModeToggle />
-            <SignedOut>
-              <SignInButton mode="modal">
-                <Button variant="secondary" size="sm">Login</Button>
-              </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <Button asChild size="sm">
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
-            </SignedIn>
+            <Button asChild variant="secondary" size="sm"><Link href="/sign-in">Login</Link></Button>
+            <Button asChild size="sm"><Link href="/dashboard">Dashboard</Link></Button>
           </div>
         </div>
       </header>
@@ -128,14 +117,7 @@ export default function LandingPage() {
               Upload title deeds, search certificates, sale agreements, maps, and consent documents. Mradi wa Ardhi checks inconsistencies, missing documents, suspicious dates, and Gazette-related risks before you sign.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <SignedOut>
-                <SignUpButton mode="modal">
-                  <Button size="lg">Start Land Risk Check <ArrowRight className="h-4 w-4" /></Button>
-                </SignUpButton>
-              </SignedOut>
-              <SignedIn>
-                <Button asChild size="lg"><Link href="/cases/new">Start Land Risk Check</Link></Button>
-              </SignedIn>
+              <Button asChild size="lg"><Link href="/sign-up">Start Land Risk Check <ArrowRight className="h-4 w-4" /></Link></Button>
               <Button asChild variant="secondary" size="lg">
                 <a href="#how">See How It Works</a>
               </Button>
@@ -373,28 +355,9 @@ export default function LandingPage() {
 }
 
 function PricingPlanButton({ plan, featured }: { plan: string; featured: boolean }) {
-  const { getToken, isSignedIn } = useAuth();
-  const [status, setStatus] = useState("");
-
-  async function selectPlan() {
-    if (!isSignedIn) {
-      window.location.href = "/sign-up";
-      return;
-    }
-    const token = await getToken();
-    await apiFetch("/pricing/selection", token, {
-      method: "POST",
-      body: JSON.stringify({ plan_key: plan })
-    });
-    setStatus("Selected");
-  }
-
   return (
-    <div className="space-y-2">
-      <Button variant={featured ? "default" : "outline"} className="w-full" onClick={selectPlan}>
-        Select {plan}
-      </Button>
-      {status ? <p className="text-center text-xs text-muted-foreground">{status}</p> : null}
-    </div>
+    <Button asChild variant={featured ? "default" : "outline"} className="w-full">
+      <Link href={`/sign-up?plan=${plan}`}>Select {plan}</Link>
+    </Button>
   );
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { ArrowLeft, Download, FileCheck2, Share2, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { SuccessState } from "@/components/state-views";
@@ -14,7 +14,7 @@ import { apiUrl } from "@/lib/api";
 
 export default function DownloadReportPage() {
   const params = useParams<{ caseId: string }>();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);

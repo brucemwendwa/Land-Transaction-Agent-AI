@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { ArrowLeft, ClipboardCheck, Gavel, MapPinned, UserRoundCheck } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { SuccessState } from "@/components/state-views";
@@ -18,7 +18,7 @@ import { apiFetch } from "@/lib/api";
 export default function ReviewRequestPage() {
   const params = useParams<{ caseId: string }>();
   const searchParams = useSearchParams();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);

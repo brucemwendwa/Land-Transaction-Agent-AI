@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { AlertTriangle, ClipboardList, ShieldCheck, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
@@ -23,7 +23,7 @@ interface AdminUser {
 }
 
 export default function AdminPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [cases, setCases] = useState<ApiCase[]>([]);
   const [error, setError] = useState("");

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import {
   AlertTriangle,
   Download,
@@ -37,7 +37,7 @@ type ReportRecord = Record<string, unknown>;
 
 export default function ReportPage() {
   const params = useParams<{ caseId: string }>();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [report, setReport] = useState<ApiReport | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);

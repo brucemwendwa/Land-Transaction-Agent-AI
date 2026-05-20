@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { Activity, DatabaseZap, Fingerprint, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
@@ -24,7 +24,7 @@ interface AuditLog {
 }
 
 export default function AuditLogPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);

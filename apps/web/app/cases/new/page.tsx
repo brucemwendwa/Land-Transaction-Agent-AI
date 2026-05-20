@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { ArrowRight, CheckCircle2, FileText, Landmark, LockKeyhole, MapPinned } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
@@ -16,7 +16,7 @@ import { apiFetch, type ApiCase } from "@/lib/api";
 
 export default function NewCasePage() {
   const router = useRouter();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 

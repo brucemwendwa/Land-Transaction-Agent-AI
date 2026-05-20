@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { AlertTriangle, ArrowRight, ExternalLink, Save, ScanLine, ScanText, ShieldQuestion } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
@@ -19,7 +19,7 @@ import { apiFetch, type ApiCase, type ApiDocument } from "@/lib/api";
 
 export default function ExtractionPage() {
   const params = useParams<{ caseId: string }>();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [landCase, setLandCase] = useState<ApiCase | null>(null);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");

@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { documentCategories, type DocumentCategory } from "@mradi/contracts";
 import { ArrowRight, CheckCircle2, FileUp, LockKeyhole, UploadCloud } from "lucide-react";
 import { motion } from "framer-motion";
@@ -24,7 +24,7 @@ const MAX_UPLOAD_BYTES = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_BYTES ?? 25_0
 
 export default function UploadDocumentsPage() {
   const params = useParams<{ caseId: string }>();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [landCase, setLandCase] = useState<ApiCase | null>(null);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");

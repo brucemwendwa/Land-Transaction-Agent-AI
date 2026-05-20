@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SignedIn, UserButton } from "@clerk/nextjs";
 import { ClipboardList, FileText, Home, LayoutDashboard, ScrollText, Settings, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { ModeToggle } from "@/components/mode-toggle";
 import { cn } from "@/lib/utils";
+import { AuthUserButton } from "@/lib/auth";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -34,9 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="flex items-center gap-2">
             <ModeToggle />
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
+            <AuthUserButton />
           </div>
         </div>
       </header>

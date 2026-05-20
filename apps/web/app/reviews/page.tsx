@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { ArrowRight, Gavel, MapPinned } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
@@ -25,7 +25,7 @@ interface ReviewRequest {
 }
 
 export default function ReviewsPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [reviews, setReviews] = useState<ReviewRequest[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);

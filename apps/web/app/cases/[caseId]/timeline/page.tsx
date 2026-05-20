@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { Activity, ArrowRight, CheckCircle2, Clock3, FileSearch, ShieldAlert } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
@@ -24,7 +24,7 @@ interface TimelineEvent {
 
 export default function CaseTimelinePage() {
   const params = useParams<{ caseId: string }>();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);

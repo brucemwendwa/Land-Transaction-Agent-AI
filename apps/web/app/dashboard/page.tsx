@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/lib/auth";
 import { AlertTriangle, ArrowRight, FileCheck2, Plus, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
@@ -14,7 +14,7 @@ import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 import { EmptyState, ErrorState } from "@/components/state-views";
 
 export default function DashboardPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [cases, setCases] = useState<ApiCase[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);

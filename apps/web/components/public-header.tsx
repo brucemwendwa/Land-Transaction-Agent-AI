@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { ShieldCheck } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -21,14 +20,8 @@ export function PublicHeader() {
         </Link>
         <div className="flex items-center gap-2">
           <ModeToggle />
-          <SignedOut>
-            <SignInButton mode="modal">
-              <Button variant="outline" size="sm">Login</Button>
-            </SignInButton>
-          </SignedOut>
-          <SignedIn>
-            <Button asChild size="sm"><Link href="/dashboard">Dashboard</Link></Button>
-          </SignedIn>
+          <Button asChild variant="outline" size="sm"><Link href="/sign-in">Login</Link></Button>
+          <Button asChild size="sm"><Link href="/dashboard">Dashboard</Link></Button>
         </div>
       </div>
     </header>
