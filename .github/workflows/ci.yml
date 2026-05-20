@@ -22,7 +22,7 @@ jobs:
       LOCAL_STORAGE_ROOT: ./test-local-storage
       API_BASE_URL: http://testserver
       NEXT_PUBLIC_API_URL: http://localhost:8000
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: test-clerk-publishable-key
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk
       CLERK_SECRET_KEY: test-clerk-secret-key
 
     steps:
