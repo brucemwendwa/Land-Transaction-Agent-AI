@@ -44,6 +44,7 @@ const scriptPolicy = isProduction
   : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${clerkOrigins}`;
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1"],
   images: {
     remotePatterns: [
       {
