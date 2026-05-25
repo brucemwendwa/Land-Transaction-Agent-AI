@@ -6,6 +6,7 @@ import { AuthConfigurationError } from "@/lib/auth";
 
 const placeholderClerkKey = "pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk";
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const clerkSecretKey = process.env.CLERK_SECRET_KEY;
 const isProduction = process.env.NODE_ENV === "production";
 
 export const metadata: Metadata = {
@@ -24,7 +25,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     </html>
   );
 
-  if (!clerkPublishableKey || clerkPublishableKey === placeholderClerkKey) {
+  if (!clerkPublishableKey || clerkPublishableKey === placeholderClerkKey || (isProduction && !clerkSecretKey)) {
     if (isProduction) {
       return (
         <html lang="en" suppressHydrationWarning>
