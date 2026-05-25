@@ -293,15 +293,31 @@ class ReviewRequestCreate(RequestModel):
     note: str = Field(default="", max_length=2000)
 
 
+class ReviewAssignRequest(RequestModel):
+    assigned_to_user_id: str = Field(pattern=UUID_PATTERN)
+    reviewer_email: EmailStr | None = None
+
+
+class ReviewUpdateRequest(RequestModel):
+    status: str | None = Field(default=None, pattern="^(requested|assigned|in_review|completed|rejected)$")
+    review_summary: str | None = Field(default=None, max_length=5000)
+    recommendation: str | None = Field(default=None, max_length=3000)
+    attachment_document_ids: list[str] = Field(default_factory=list)
+
+
 class ReviewRequestRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     case_id: str
+    assigned_to_user_id: str | None
     reviewer_role: ReviewRole
     reviewer_email: EmailStr
     note: str
     status: str
+    recommendation: str
+    review_summary: str
+    metadata_json: dict[str, Any]
     created_at: datetime
 
 
