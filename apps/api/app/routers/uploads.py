@@ -54,6 +54,7 @@ async def create_signed_upload_url(
         max_bytes=payload.file_size,
     )
     document.storage_uri = ticket["storage_uri"]
+    document.storage_bucket = str(ticket.get("storage_bucket", ""))
     write_timeline(
         db,
         case_id=case.id,
