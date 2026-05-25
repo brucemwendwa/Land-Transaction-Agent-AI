@@ -513,6 +513,15 @@ def _update_document_extraction_statuses(db: Session, vision_output: Any) -> Non
 
 def _document_extraction_warnings(extracted: Any) -> list[dict[str, Any]]:
     warnings: list[dict[str, Any]] = []
+    failure = getattr(extracted, "failure", None)
+    if failure is not None and getattr(failure, "code", "") == "provider_not_configured":
+        warnings.append(
+            {
+                "code": "provider_not_configured",
+                "severity": "high",
+                "message": "No OCR or vision extraction provider is configured for this file type. Manual review is required.",
+            }
+        )
     category = extracted.category.value if hasattr(extracted.category, "value") else str(extracted.category)
     if extracted.document_quality_score is not None and extracted.document_quality_score < 0.45:
         warnings.append(

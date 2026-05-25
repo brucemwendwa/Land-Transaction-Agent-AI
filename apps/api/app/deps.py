@@ -18,7 +18,7 @@ async def get_current_user(
     db: Annotated[Session, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
-    if settings.auth_bypass:
+    if settings.auth_bypass_enabled:
         principal = local_dev_principal()
         dev_role = request.headers.get("x-dev-role")
         if dev_role:

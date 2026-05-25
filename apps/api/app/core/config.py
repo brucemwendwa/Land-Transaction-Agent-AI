@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     )
 
     app_env: str = Field(default="development", validation_alias="APP_ENV")
+    node_env: str = Field(default="development", validation_alias="NODE_ENV")
     public_app_url: str = Field(
         default="http://localhost:3000",
         validation_alias=AliasChoices("FRONTEND_URL", "PUBLIC_APP_URL"),
@@ -36,6 +37,7 @@ class Settings(BaseSettings):
     clerk_issuer: str = Field(default="", validation_alias="CLERK_ISSUER")
     clerk_jwks_url: str = Field(default="", validation_alias="CLERK_JWKS_URL")
     clerk_audience: str = Field(default="", validation_alias="CLERK_AUDIENCE")
+    clerk_secret_key: str = Field(default="", validation_alias="CLERK_SECRET_KEY")
     auth_secret: str = Field(default="", validation_alias="AUTH_SECRET")
     auth_bypass: bool = Field(default=False, validation_alias="AUTH_BYPASS")
     auth_allowed_algorithm: str = Field(default="RS256", validation_alias="AUTH_ALLOWED_ALGORITHM")
@@ -86,13 +88,25 @@ class Settings(BaseSettings):
     sentry_profiles_sample_rate: float = Field(default=0.0, validation_alias="SENTRY_PROFILES_SAMPLE_RATE")
     state_department_lands_gazette_url: str = Field(default="", validation_alias="STATE_DEPARTMENT_LANDS_GAZETTE_URL")
 
+    payment_gate_reports: bool = Field(default=False, validation_alias="PAYMENT_GATE_REPORTS")
+    mpesa_consumer_key: str = Field(default="", validation_alias="MPESA_CONSUMER_KEY")
+    mpesa_consumer_secret: str = Field(default="", validation_alias="MPESA_CONSUMER_SECRET")
+    mpesa_shortcode: str = Field(default="", validation_alias="MPESA_SHORTCODE")
+    mpesa_passkey: str = Field(default="", validation_alias="MPESA_PASSKEY")
+    mpesa_callback_url: str = Field(default="", validation_alias="MPESA_CALLBACK_URL")
+    mpesa_environment: str = Field(default="sandbox", validation_alias="MPESA_ENVIRONMENT")
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     @property
     def is_production(self) -> bool:
-        return self.app_env.lower() == "production"
+        return self.app_env.lower() == "production" or self.node_env.lower() == "production"
+
+    @property
+    def auth_bypass_enabled(self) -> bool:
+        return self.auth_bypass and not self.is_production
 
     @property
     def document_ai_enabled(self) -> bool:
@@ -109,6 +123,18 @@ class Settings(BaseSettings):
     @property
     def kenya_gazette_url(self) -> AnyHttpUrl | str:
         return "https://new.kenyalaw.org/gazettes/"
+
+    @property
+    def mpesa_configured(self) -> bool:
+        return all(
+            [
+                self.mpesa_consumer_key,
+                self.mpesa_consumer_secret,
+                self.mpesa_shortcode,
+                self.mpesa_passkey,
+                self.mpesa_callback_url,
+            ]
+        )
 
     @model_validator(mode="after")
     def validate_production_security(self) -> Settings:
@@ -136,6 +162,8 @@ class Settings(BaseSettings):
             errors.append("AUTH_SECRET or strong upload/report signing secrets are required in production")
         if not self.clerk_issuer or not self.clerk_jwks_url:
             errors.append("CLERK_ISSUER and CLERK_JWKS_URL are required in production")
+        if not self.clerk_secret_key:
+            errors.append("CLERK_SECRET_KEY is required in production")
         if self.auth_allowed_algorithm != "RS256":
             errors.append("AUTH_ALLOWED_ALGORITHM must remain RS256 in production")
         if not self.public_app_url.startswith("https://"):
