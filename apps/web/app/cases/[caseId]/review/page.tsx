@@ -101,7 +101,7 @@ export default function ReviewRequestPage() {
                     {error}
                   </div>
                 ) : null}
-                <Button disabled={loading}>{loading ? "Saving request..." : "Request review"}</Button>
+                <Button type="submit" disabled={loading}>{loading ? "Saving request..." : "Request review"}</Button>
               </form>
             </CardContent>
           </Card>

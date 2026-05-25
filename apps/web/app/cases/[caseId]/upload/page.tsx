@@ -227,7 +227,7 @@ export default function UploadDocumentsPage() {
                   I have permission to upload this land transaction document and consent to secure processing for extraction, risk analysis, audit logging, and deletion handling.
                 </span>
               </label>
-              <Button className="w-full" disabled={!selectedFile || !hasConsent || (uploadProgress > 0 && uploadProgress < 100)}>
+              <Button type="submit" className="w-full" disabled={!selectedFile || !hasConsent || (uploadProgress > 0 && uploadProgress < 100)}>
                 <LockKeyhole className="h-4 w-4" aria-hidden="true" />
                 Upload securely
               </Button>

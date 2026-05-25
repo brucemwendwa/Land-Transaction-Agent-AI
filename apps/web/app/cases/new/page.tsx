@@ -105,7 +105,7 @@ export default function NewCasePage() {
                   </div>
                 ) : null}
                 <div className="md:col-span-2">
-                  <Button disabled={loading} className="w-full sm:w-auto">
+                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                     {loading ? "Creating..." : "Create and upload documents"}
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Button>
