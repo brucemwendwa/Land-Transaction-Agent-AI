@@ -21,6 +21,7 @@ class UploadTicket(dict[str, Any]):
     headers: dict[str, str]
     expires_at: datetime
     storage_uri: str
+    storage_bucket: str
 
 
 class StorageProvider(Protocol):
@@ -78,6 +79,7 @@ class LocalStorageProvider:
             headers={"content-type": content_type},
             expires_at=expires_at,
             storage_uri=storage_uri,
+            storage_bucket="local",
         )
 
     def verify_upload_token(
@@ -171,6 +173,7 @@ class GCSStorageProvider:
             headers={"content-type": content_type},
             expires_at=expires_at,
             storage_uri=f"gs://{settings.gcs_bucket}/{blob_name}",
+            storage_bucket=settings.gcs_bucket,
         )
 
     def _blob_from_uri(self, storage_uri: str) -> Any:
