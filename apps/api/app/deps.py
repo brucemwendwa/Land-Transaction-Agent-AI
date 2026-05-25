@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.security import local_dev_principal, verify_clerk_jwt
 from app.db.session import get_db
 from app.domain.enums import UserRole
-from app.models import LandCase, User
+from app.models import LandCase, ReviewRequest, User
 
 
 async def get_current_user(
@@ -61,6 +61,16 @@ def get_case_for_user(case_id: str, db: Session, current_user: User) -> LandCase
     case = db.query(LandCase).filter(LandCase.id == case_id).one_or_none()
     if case is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
-    if current_user.role != UserRole.ADMIN and case.owner_user_id != current_user.id:
+    if current_user.role == UserRole.ADMIN or case.owner_user_id == current_user.id:
+        return case
+    assigned_review = (
+        db.query(ReviewRequest)
+        .filter(
+            ReviewRequest.case_id == case.id,
+            (ReviewRequest.assigned_to_user_id == current_user.id) | (ReviewRequest.reviewer_email == current_user.email),
+        )
+        .first()
+    )
+    if assigned_review is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Case is not accessible")
     return case
