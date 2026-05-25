@@ -13,7 +13,7 @@ from app.core.logging import configure_logging
 from app.core.middleware import CSRFMiddleware, InMemoryRateLimitMiddleware, RequestContextMiddleware, SecurityHeadersMiddleware
 from app.core.monitoring import configure_error_monitoring
 from app.db.session import check_database, init_db
-from app.routers import admin, analysis, audit_logs, auth, cases, documents, gazette, pricing, reports, reviews, uploads
+from app.routers import admin, analysis, audit_logs, auth, cases, documents, gazette, payments, pricing, reports, reviews, uploads
 from app.schemas import HealthResponse
 
 configure_logging()
@@ -82,6 +82,7 @@ app.include_router(analysis.api_router)
 app.include_router(gazette.router)
 app.include_router(reports.router)
 app.include_router(reviews.router)
+app.include_router(payments.router)
 app.include_router(admin.router)
 app.include_router(audit_logs.router)
 app.include_router(pricing.router)
