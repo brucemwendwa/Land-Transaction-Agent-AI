@@ -333,6 +333,43 @@ class PricingSelectionRequest(RequestModel):
     plan_key: str = Field(pattern="^(starter|professional|firm)$")
 
 
+class MpesaPaymentInitiateRequest(RequestModel):
+    case_id: str = Field(pattern=UUID_PATTERN)
+    amount: Decimal = Field(gt=0)
+    phone_number: str = Field(min_length=10, max_length=20)
+    purpose: str = Field(default="report_unlock", pattern="^(report_unlock|subscription|expert_review)$")
+
+
+class PaymentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    case_id: str | None
+    provider: str
+    purpose: str
+    amount: Decimal
+    currency: str
+    phone_number: str
+    status: str
+    provider_merchant_request_id: str
+    provider_checkout_request_id: str
+    provider_receipt_number: str
+    result_code: str
+    result_description: str
+    paid_at: datetime | None
+    created_at: datetime
+
+
+class MpesaPaymentInitiateResponse(BaseModel):
+    payment: PaymentRead | None = None
+    status: str
+    message: str
+
+
+class MpesaCallbackResponse(BaseModel):
+    status: str
+
+
 class ReportGenerationRequest(RequestModel):
     accepted_legal_disclaimer: bool = False
     force_regenerate: bool = False

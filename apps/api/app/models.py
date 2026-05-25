@@ -605,6 +605,73 @@ class PricingPlanSelection(Base, TimestampMixin):
     metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
 
 
+class Payment(Base, TimestampMixin):
+    __tablename__ = "payments"
+    __table_args__ = (
+        Index("ix_payments_user_id", "user_id"),
+        Index("ix_payments_case_id", "case_id"),
+        Index("ix_payments_status", "status"),
+        Index("ix_payments_provider_checkout_request_id", "provider_checkout_request_id"),
+        Index("ix_payments_created_at", "created_at"),
+        {"comment": "Provider-backed payment attempts, including M-Pesa STK Push."},
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    organization_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id"), nullable=True)
+    case_id: Mapped[str | None] = mapped_column(ForeignKey("cases.id"), nullable=True)
+    provider: Mapped[str] = mapped_column(String(80), default="mpesa", nullable=False)
+    purpose: Mapped[str] = mapped_column(String(80), default="report_unlock", nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="KES", nullable=False)
+    phone_number: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(60), default="pending", nullable=False)
+    provider_merchant_request_id: Mapped[str] = mapped_column(String(160), default="", nullable=False)
+    provider_checkout_request_id: Mapped[str] = mapped_column(String(160), default="", nullable=False)
+    provider_receipt_number: Mapped[str] = mapped_column(String(160), default="", nullable=False)
+    result_code: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    result_description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
+
+
+class PaymentEvent(Base, TimestampMixin):
+    __tablename__ = "payment_events"
+    __table_args__ = (
+        Index("ix_payment_events_payment_id", "payment_id"),
+        Index("ix_payment_events_provider_event_id", "provider_event_id"),
+        Index("ix_payment_events_created_at", "created_at"),
+        {"comment": "Append-only payment provider callback and status events."},
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    payment_id: Mapped[str | None] = mapped_column(ForeignKey("payments.id"), nullable=True)
+    provider: Mapped[str] = mapped_column(String(80), default="mpesa", nullable=False)
+    provider_event_id: Mapped[str] = mapped_column(String(160), default="", nullable=False)
+    event_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class Subscription(Base, TimestampMixin):
+    __tablename__ = "subscriptions"
+    __table_args__ = (
+        Index("ix_subscriptions_user_id", "user_id"),
+        Index("ix_subscriptions_status", "status"),
+        Index("ix_subscriptions_created_at", "created_at"),
+        {"comment": "Optional recurring entitlement records for firms and repeat buyers."},
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    organization_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id"), nullable=True)
+    provider: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    provider_subscription_id: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    plan_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(60), default="inactive", nullable=False)
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
+
+
 class Notification(Base, TimestampMixin):
     __tablename__ = "notifications"
     __table_args__ = (
