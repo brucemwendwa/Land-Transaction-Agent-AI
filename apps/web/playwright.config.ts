@@ -9,6 +9,9 @@ export default defineConfig({
   },
   webServer: {
     command: "corepack pnpm dev",
+    env: {
+      NEXT_PUBLIC_REPORT_UNLOCK_AMOUNT: "100"
+    },
     url: "http://127.0.0.1:3000",
     reuseExistingServer: true,
     timeout: 120_000
