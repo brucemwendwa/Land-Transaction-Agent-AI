@@ -6,12 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from app.agents.orchestrator import run_case_analysis
+from app.core.config import settings
 from app.db.session import get_db
 from app.deps import get_case_for_user, get_current_user
-from app.core.config import settings
 from app.models import LandCase, Report, RiskFactor, User
-from app.schemas import ReportGenerationRequest, ReportRead, RiskFactorRead
 from app.routers.payments import has_successful_report_payment
+from app.schemas import ReportGenerationRequest, ReportRead, RiskFactorRead
 from app.services.audit import write_audit
 from app.services.reporting import report_stale_reasons
 from app.services.storage import get_storage_provider
