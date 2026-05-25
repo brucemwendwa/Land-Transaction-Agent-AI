@@ -103,7 +103,10 @@ Required:
 | `NEXT_PUBLIC_API_URL` | Cloud Run backend URL, with no trailing slash. |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key. |
 | `CLERK_SECRET_KEY` | Clerk secret key. |
+| `AUTH_BYPASS` | Must be unset or `false` in production. `true` is rejected by the web auth gate. |
 | `NEXT_PUBLIC_MAX_UPLOAD_BYTES` | Match backend `MAX_UPLOAD_BYTES`. |
+
+See [Vercel Clerk Authentication Setup](./vercel-clerk-auth.md) for exact Vercel dashboard steps and redeploy instructions.
 
 ## Secret Storage
 

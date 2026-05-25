@@ -209,8 +209,11 @@ Set Vercel production variables:
 vercel env add NEXT_PUBLIC_API_URL production
 vercel env add NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY production
 vercel env add CLERK_SECRET_KEY production
+vercel env add AUTH_BYPASS production
 vercel env add NEXT_PUBLIC_MAX_UPLOAD_BYTES production
 ```
+
+Set `AUTH_BYPASS` to `false` or leave it unset for production. Never use the development bypass in Vercel production.
 
 Deploy:
 
@@ -219,6 +222,8 @@ pnpm install --frozen-lockfile
 pnpm --filter @mradi/web build
 vercel --prod
 ```
+
+For exact Clerk setup steps, including the Vercel dashboard path and redeploy procedure, see [Vercel Clerk Authentication Setup](./vercel-clerk-auth.md).
 
 In the Vercel project settings, keep the project root at the repository root when using the included `vercel.json`.
 
