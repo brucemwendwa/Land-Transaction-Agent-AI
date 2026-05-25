@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.deps import get_case_for_user, get_current_user, require_roles
-from app.models import ReviewRequest, User
 from app.domain.enums import UserRole
+from app.models import ReviewRequest, User
 from app.schemas import ReviewAssignRequest, ReviewRequestCreate, ReviewRequestRead, ReviewUpdateRequest
 from app.services.audit import write_audit, write_timeline
+from app.services.notifications import queue_email_notification
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -66,6 +68,16 @@ async def create_review_request(
         request=request,
         case_id=case.id,
     )
+    queue_email_notification(
+        db,
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        case_id=case.id,
+        notification_type="expert_review_requested",
+        title=f"{payload.reviewer_role.value.title()} review requested",
+        body="An expert review request was created. Email delivery is queued when a mail provider is configured.",
+        metadata={"reviewer_role": payload.reviewer_role.value, "review_id": review.id},
+    )
     db.commit()
     db.refresh(review)
     return review
@@ -104,7 +116,11 @@ async def assign_review(
     review.assigned_to_user_id = expert.id
     review.reviewer_email = str(payload.reviewer_email or expert.email)
     review.status = "assigned"
-    review.metadata_json = {**(review.metadata_json or {}), "assigned_by_user_id": current_user.id}
+    review.metadata_json = {
+        **(review.metadata_json or {}),
+        "assigned_by_user_id": current_user.id,
+        "email_notification": "queued",
+    }
     write_timeline(
         db,
         case_id=review.case_id,
@@ -122,6 +138,16 @@ async def assign_review(
         request=request,
         case_id=review.case_id,
     )
+    queue_email_notification(
+        db,
+        user_id=expert.id,
+        organization_id=expert.organization_id,
+        case_id=review.case_id,
+        notification_type="expert_review_assigned",
+        title="Expert review assigned",
+        body="A land transaction review has been assigned to you.",
+        metadata={"review_id": review.id, "assigned_by_user_id": current_user.id},
+    )
     db.commit()
     db.refresh(review)
     return review
@@ -138,20 +164,27 @@ async def update_review(
     review = db.query(ReviewRequest).filter(ReviewRequest.id == review_id).one_or_none()
     if review is None:
         raise HTTPException(status_code=404, detail="Review request not found")
-    can_update = current_user.role == UserRole.ADMIN or review.assigned_to_user_id == current_user.id or review.reviewer_email == current_user.email
+    can_update = (
+        current_user.role == UserRole.ADMIN
+        or review.assigned_to_user_id == current_user.id
+        or review.reviewer_email == current_user.email
+    )
     if not can_update:
         raise HTTPException(status_code=403, detail="Review request is not accessible")
     changes = payload.model_dump(exclude_unset=True)
     if payload.status is not None:
         review.status = payload.status
         if payload.status == "completed":
-            review.completed_at = ReviewRequest.utcnow() if hasattr(ReviewRequest, "utcnow") else None
+            review.completed_at = datetime.now(UTC).replace(tzinfo=None)
     if payload.review_summary is not None:
         review.review_summary = payload.review_summary
     if payload.recommendation is not None:
         review.recommendation = payload.recommendation
     if payload.attachment_document_ids:
-        review.metadata_json = {**(review.metadata_json or {}), "attachment_document_ids": payload.attachment_document_ids}
+        review.metadata_json = {
+            **(review.metadata_json or {}),
+            "attachment_document_ids": payload.attachment_document_ids,
+        }
     write_timeline(
         db,
         case_id=review.case_id,
@@ -169,6 +202,16 @@ async def update_review(
         request=request,
         case_id=review.case_id,
         metadata={"status": review.status},
+    )
+    queue_email_notification(
+        db,
+        user_id=review.requested_by_user_id,
+        organization_id=current_user.organization_id,
+        case_id=review.case_id,
+        notification_type="expert_review_updated",
+        title=f"Expert review {review.status.replace('_', ' ')}",
+        body="An expert review status or recommendation was updated.",
+        metadata={"review_id": review.id, "status": review.status},
     )
     db.commit()
     db.refresh(review)
