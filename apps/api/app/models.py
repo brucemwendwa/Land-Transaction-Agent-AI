@@ -199,6 +199,9 @@ class Document(Base, TimestampMixin):
     storage_uri: Mapped[str] = mapped_column(
         "storage_key", String(500), nullable=False, comment="Private storage key/URI used by the storage adapter."
     )
+    storage_bucket: Mapped[str] = mapped_column(
+        "bucket", String(255), default="", nullable=False, comment="Private storage bucket or local backend namespace."
+    )
     content_type: Mapped[str] = mapped_column("mime_type", String(120), nullable=False, comment="Uploaded MIME type.")
     file_size: Mapped[int] = mapped_column(Integer, default=0, nullable=False, comment="File size in bytes.")
     sha256: Mapped[str] = mapped_column(String(64), default="", nullable=False, comment="SHA-256 digest for integrity checks.")
@@ -525,6 +528,7 @@ class ReviewRequest(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_expert_reviews_case_id", "case_id"),
         Index("ix_expert_reviews_user_id", "user_id"),
+        Index("ix_expert_reviews_assigned_to_user_id", "assigned_to_user_id"),
         Index("ix_expert_reviews_created_at", "created_at"),
         {"comment": "Manual expert review requests for advocates, surveyors, and other professionals."},
     )
