@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, Protocol
@@ -32,6 +33,9 @@ CONFLICT_KEYWORDS = {
     "charge",
     "rectification",
 }
+
+_SOURCE_CACHE_TTL_SECONDS = 900
+_source_cache: dict[str, tuple[float, GazetteSourceSearchResult]] = {}
 
 
 @dataclass(frozen=True)
@@ -242,6 +246,10 @@ async def _search_html_source(
     query: GazetteSearchQuery,
 ) -> GazetteSourceSearchResult:
     checked_at = datetime.now(UTC).isoformat()
+    cache_key = f"{source_name}:{base_url}:{'|'.join(query.terms)}"
+    cached = _source_cache.get(cache_key)
+    if cached and cached[0] > time.time():
+        return cached[1]
     notices: list[GazetteNoticeResult] = []
     attempted_terms: list[str] = []
     try:
@@ -249,8 +257,7 @@ async def _search_html_source(
             for term in query.terms[:10]:
                 attempted_terms.append(term)
                 query_url = f"{base_url}?{urlencode({'q': term})}"
-                response = await client.get(query_url)
-                response.raise_for_status()
+                response = await _get_with_retries(client, query_url)
                 notices.extend(
                     _extract_hits(
                         html=response.text,
@@ -268,13 +275,36 @@ async def _search_html_source(
             error=str(exc),
             checked_at=checked_at,
         )
-    return GazetteSourceSearchResult(
+    result = GazetteSourceSearchResult(
         source_name=source_name,
         status="checked_match_found" if notices else "checked_no_match",
         query_terms=attempted_terms,
         notices=_dedupe_notices(notices),
         checked_at=checked_at,
     )
+    _source_cache[cache_key] = (time.time() + _SOURCE_CACHE_TTL_SECONDS, result)
+    return result
+
+
+async def _get_with_retries(client: httpx.AsyncClient, url: str, *, attempts: int = 3) -> httpx.Response:
+    last_error: httpx.HTTPError | None = None
+    for attempt in range(attempts):
+        try:
+            response = await client.get(url)
+            response.raise_for_status()
+            return response
+        except httpx.HTTPError as exc:
+            last_error = exc
+            if attempt == attempts - 1:
+                break
+            await _sleep_backoff(attempt)
+    raise last_error or httpx.HTTPError("Gazette request failed")
+
+
+async def _sleep_backoff(attempt: int) -> None:
+    import asyncio
+
+    await asyncio.sleep(0.35 * (attempt + 1))
 
 
 def _extract_hits(
