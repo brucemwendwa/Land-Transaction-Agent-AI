@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Protocol
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -26,6 +26,101 @@ class FieldExtraction:
     bounding_box: dict[str, Any] | None = None
     text_snippet: str = ""
     metadata: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True)
+class ExtractionProviderResult:
+    provider_name: str
+    status: str
+    fields: list[FieldExtraction]
+    text: str = ""
+    detail: str = ""
+
+
+class ExtractionProvider(Protocol):
+    provider_name: str
+
+    @property
+    def configured(self) -> bool: ...
+
+    def extract(self, *, content: bytes, content_type: str, category: DocumentCategory) -> ExtractionProviderResult: ...
+
+
+class LocalTextProvider:
+    provider_name = "local_text"
+
+    @property
+    def configured(self) -> bool:
+        return True
+
+    def extract(self, *, content: bytes, content_type: str, category: DocumentCategory) -> ExtractionProviderResult:
+        pages = extract_text_pages_from_bytes(content, content_type)
+        text = "\n".join(page for page in pages if page).strip()
+        if not text:
+            return ExtractionProviderResult(
+                provider_name=self.provider_name,
+                status="no_text_found",
+                fields=[],
+                text="",
+                detail="No native text was found in the file.",
+            )
+        return ExtractionProviderResult(
+            provider_name=self.provider_name,
+            status="completed",
+            fields=list(_deterministic_fields(pages, category, self.provider_name)),
+            text=text,
+            detail="Extracted fields from native text.",
+        )
+
+
+class DocumentAIProvider:
+    provider_name = "document_ai"
+
+    @property
+    def configured(self) -> bool:
+        return settings.document_ai_enabled
+
+    def extract(self, *, content: bytes, content_type: str, category: DocumentCategory) -> ExtractionProviderResult:
+        if not self.configured:
+            return ExtractionProviderResult(
+                provider_name=self.provider_name,
+                status="provider_not_configured",
+                fields=[],
+                detail="Google Document AI is not configured.",
+            )
+        text = run_document_ai_ocr(content, content_type)
+        pages = [text] if text else []
+        return ExtractionProviderResult(
+            provider_name=self.provider_name,
+            status="completed" if text else "no_text_found",
+            fields=list(_deterministic_fields(pages, category, self.provider_name)),
+            text=text,
+            detail="Extracted fields with Google Document AI.",
+        )
+
+
+class GeminiVisionProvider:
+    provider_name = "gemini_vision"
+
+    @property
+    def configured(self) -> bool:
+        return settings.gemini_vision_enabled
+
+    def extract(self, *, content: bytes, content_type: str, category: DocumentCategory) -> ExtractionProviderResult:
+        if not self.configured:
+            return ExtractionProviderResult(
+                provider_name=self.provider_name,
+                status="provider_not_configured",
+                fields=[],
+                detail="Gemini Vision is not configured.",
+            )
+        fields = run_gemini_vision_extraction(content=content, content_type=content_type, category=category)
+        return ExtractionProviderResult(
+            provider_name=self.provider_name,
+            status="completed" if fields else "no_fields_found",
+            fields=fields,
+            detail="Extracted visual fields with Gemini Vision.",
+        )
 
 
 class GeminiVisionField(BaseModel):
@@ -107,16 +202,24 @@ def extract_document_fields(
     content_type: str,
     category: DocumentCategory,
 ) -> tuple[list[FieldExtraction], float | None, VerificationStatus, str]:
-    pages = extract_text_pages_from_bytes(content, content_type)
-    text = "\n".join(page for page in pages if page).strip()
-    ocr_source = "native_text"
-    if not text and settings.document_ai_enabled:
-        text = run_document_ai_ocr(content, content_type)
-        pages = [text] if text else []
-        ocr_source = "document_ai"
-
-    fields = list(_deterministic_fields(pages, category, ocr_source))
-    fields.extend(run_gemini_vision_extraction(content=content, content_type=content_type, category=category))
+    results = [
+        provider.extract(content=content, content_type=content_type, category=category)
+        for provider in [LocalTextProvider(), DocumentAIProvider(), GeminiVisionProvider()]
+    ]
+    text = next((result.text for result in results if result.text), "")
+    fields = [
+        FieldExtraction(
+            **{
+                **field.__dict__,
+                "metadata": {
+                    **(field.metadata or {}),
+                    "provider_statuses": {result.provider_name: result.status for result in results},
+                },
+            }
+        )
+        for result in results
+        for field in result.fields
+    ]
     quality = estimate_quality(text, content_type)
     status = (
         VerificationStatus.NOT_VERIFIED_FROM_OFFICIAL_SOURCE
@@ -124,6 +227,18 @@ def extract_document_fields(
         else VerificationStatus.MANUAL_REVIEW_REQUIRED
     )
     return fields, quality, status, text
+
+
+def extraction_provider_status(*, content_type: str, fields: list[FieldExtraction], raw_text: str) -> str:
+    if fields:
+        return "completed"
+    if raw_text:
+        return "no_structured_fields"
+    if content_type == "application/pdf" or content_type.startswith("text/"):
+        return "no_text_found"
+    if not settings.document_ai_enabled and not settings.gemini_vision_enabled:
+        return "provider_not_configured"
+    return "manual_review_required"
 
 
 def _deterministic_fields(
