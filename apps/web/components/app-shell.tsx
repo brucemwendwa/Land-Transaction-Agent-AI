@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, FileText, Home, LayoutDashboard, ScrollText, Settings, ShieldCheck } from "lucide-react";
+import { ClipboardList, FileText, Home, LayoutDashboard, ScrollText, Settings, ShieldCheck, UserRoundCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { ModeToggle } from "@/components/mode-toggle";
 import { cn } from "@/lib/utils";
 import { AuthUserButton } from "@/lib/auth";
+import { LEGAL_DISCLAIMER, legalLinks } from "@/lib/legal";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/cases/new", label: "New case", icon: FileText },
   { href: "/reviews", label: "Reviews", icon: ShieldCheck },
+  { href: "/expert", label: "Expert", icon: UserRoundCheck },
   { href: "/admin", label: "Admin", icon: LayoutDashboard },
   { href: "/audit-log", label: "Audit", icon: ClipboardList },
   { href: "/settings", label: "Settings", icon: Settings }
@@ -60,15 +62,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <motion.main
-          key={pathname}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
-          className="min-w-0"
-        >
-          {children}
-        </motion.main>
+        <div className="min-w-0">
+          <motion.main
+            key={pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+            {children}
+          </motion.main>
+          <footer className="mt-10 border-t py-5 text-xs leading-5 text-muted-foreground">
+            <p>{LEGAL_DISCLAIMER}</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {legalLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="font-medium text-foreground hover:text-primary">
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </footer>
+        </div>
       </div>
     </div>
   );

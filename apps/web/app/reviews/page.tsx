@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAppAuth } from "@/lib/auth";
-import { ArrowRight, Gavel, MapPinned } from "lucide-react";
+import { ArrowRight, Gavel, MapPinned, UserRoundCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { EmptyState, ErrorState, LoadingPanel } from "@/components/state-views";
@@ -11,18 +11,8 @@ import { StatusBadge, statusToneFromValue } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, type ReviewRequest } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-
-interface ReviewRequest {
-  id: string;
-  case_id: string;
-  reviewer_role: string;
-  reviewer_email: string;
-  note: string;
-  status: string;
-  created_at: string;
-}
 
 export default function ReviewsPage() {
   const { getToken } = useAppAuth();
@@ -53,7 +43,12 @@ export default function ReviewsPage() {
             Track advocate and surveyor review requests for transactions that need human judgment.
           </p>
         </div>
-        <Badge variant="outline">{reviews.length} total</Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">{reviews.length} total</Badge>
+          <Button asChild variant="outline">
+            <Link href="/expert"><UserRoundCheck className="h-4 w-4" /> Expert dashboard</Link>
+          </Button>
+        </div>
       </div>
 
       {loading ? <div className="mt-6"><LoadingPanel label="Loading review requests" /></div> : null}
@@ -91,6 +86,12 @@ export default function ReviewsPage() {
                       <div className="mt-1 text-xs">{formatDate(review.created_at)}</div>
                     </div>
                     <p className="leading-6">{review.note || "No note provided."}</p>
+                    {review.recommendation ? (
+                      <div className="rounded-lg border bg-muted/40 p-3">
+                        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recommendation</div>
+                        <p className="mt-2 leading-6">{review.recommendation}</p>
+                      </div>
+                    ) : null}
                     <Button asChild variant="outline" className="w-full">
                       <Link href={`/cases/${review.case_id}/timeline`}>Open case timeline <ArrowRight className="h-4 w-4" /></Link>
                     </Button>
