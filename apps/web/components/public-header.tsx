@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
+import { legalLinks } from "@/lib/legal";
 
 export function PublicHeader() {
   return (
@@ -19,6 +20,13 @@ export function PublicHeader() {
           </span>
         </Link>
         <div className="flex items-center gap-2">
+          <nav aria-label="Legal pages" className="hidden items-center gap-3 text-xs text-muted-foreground lg:flex">
+            {legalLinks.map((link) => (
+              <Link key={link.href} href={link.href} className="hover:text-foreground">
+                {link.label}
+              </Link>
+            ))}
+          </nav>
           <ModeToggle />
           <Button asChild variant="outline" size="sm"><Link href="/sign-in">Login</Link></Button>
           <Button asChild size="sm"><Link href="/dashboard">Dashboard</Link></Button>
