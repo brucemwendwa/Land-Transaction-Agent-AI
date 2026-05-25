@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { ModeToggle } from "@/components/mode-toggle";
 import { RiskMeter } from "@/components/risk-meter";
 import { StatusBadge } from "@/components/status-badge";
+import { LEGAL_DISCLAIMER, legalLinks } from "@/lib/legal";
 
 const trustCards = [
   { title: "Document intelligence", body: "OCR and vision extraction for titles, IDs, agreements, maps, and consents.", icon: FileSearch },
@@ -339,7 +340,7 @@ export default function LandingPage() {
           <p className="text-sm font-medium text-primary-foreground/70">Legal disclaimer</p>
           <h2 className="mt-2 text-3xl font-semibold">AI assistance, not legal advice or official registry verification.</h2>
           <p className="mt-4 max-w-4xl leading-7 text-primary-foreground/80">
-            Mradi wa Ardhi does not replace an advocate, surveyor, valuer, bank diligence team, SACCO process, or official land registry search. If an official API is unavailable, the system clearly reports that status and routes the case to uploaded-certificate parsing or manual verification.
+            {LEGAL_DISCLAIMER} If an official API is unavailable, the system clearly reports that status and routes the case to uploaded-certificate parsing or manual verification.
           </p>
         </div>
       </section>
@@ -347,7 +348,13 @@ export default function LandingPage() {
       <footer className="border-t py-8">
         <div className="section-shell flex flex-col justify-between gap-4 text-sm text-muted-foreground sm:flex-row">
           <span>© 2026 Mradi wa Ardhi</span>
-          <span>Premium land diligence for buyers, advocates, surveyors, banks, and SACCOs.</span>
+          <div className="flex flex-wrap gap-3">
+            {legalLinks.map((link) => (
+              <Link key={link.href} href={link.href} className="hover:text-foreground">
+                {link.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </footer>
     </main>
