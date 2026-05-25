@@ -3,10 +3,10 @@ from __future__ import annotations
 import io
 import json
 import re
-from collections.abc import Iterable, Protocol
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
