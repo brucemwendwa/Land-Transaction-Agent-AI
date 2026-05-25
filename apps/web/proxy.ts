@@ -5,13 +5,15 @@ import { NextResponse } from "next/server";
 const placeholderClerkKey = "pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk";
 const clerkConfigured =
   Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) &&
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY !== placeholderClerkKey;
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY !== placeholderClerkKey &&
+  Boolean(process.env.CLERK_SECRET_KEY);
 const isProduction = process.env.NODE_ENV === "production";
 
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
   "/cases(.*)",
   "/admin(.*)",
+  "/expert(.*)",
   "/settings(.*)",
   "/audit-log(.*)",
   "/reviews(.*)"
