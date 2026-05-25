@@ -3,6 +3,7 @@
 import { SignIn, SignUp, useAuth as useClerkAuth, UserButton, UserProfile } from "@clerk/nextjs";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import type { AuthConfigurationIssue } from "@/lib/auth-config";
 
 const placeholderClerkKey = "pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk";
 const isProduction = process.env.NODE_ENV === "production";
@@ -81,7 +82,13 @@ export function AuthUserProfile() {
   );
 }
 
-export function AuthConfigurationError({ compact = false }: { compact?: boolean }) {
+export function AuthConfigurationError({
+  compact = false,
+  issues = []
+}: {
+  compact?: boolean;
+  issues?: AuthConfigurationIssue[];
+}) {
   if (compact) {
     return (
       <span className="rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-1 text-xs font-medium text-destructive">
@@ -95,6 +102,20 @@ export function AuthConfigurationError({ compact = false }: { compact?: boolean 
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
         Production sign-in requires a real Clerk publishable key and secret key. Set
         NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY before exposing protected routes.
+      </p>
+      {issues.length ? (
+        <div className="mt-5 space-y-2">
+          {issues.map((issue) => (
+            <div key={issue.code} className="rounded-md border bg-muted/40 p-3">
+              <div className="font-mono text-xs font-semibold text-foreground">{issue.code}</div>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">{issue.message}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <p className="mt-5 text-sm leading-6 text-muted-foreground">
+        After adding or changing these variables in Vercel, redeploy the production deployment so the
+        server and middleware receive the new values.
       </p>
     </div>
   );
