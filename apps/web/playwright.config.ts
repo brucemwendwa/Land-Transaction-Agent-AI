@@ -8,7 +8,7 @@ export default defineConfig({
     trace: "on-first-retry"
   },
   webServer: {
-    command: "corepack pnpm dev -- --port 3002",
+    command: "corepack pnpm exec next dev --port 3002",
     env: {
       NEXT_PUBLIC_API_URL: "http://127.0.0.1:8000",
       NEXT_PUBLIC_REPORT_UNLOCK_AMOUNT: "100"
