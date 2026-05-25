@@ -9,8 +9,12 @@ import { AppShell } from "@/components/app-shell";
 import { SuccessState } from "@/components/state-views";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { apiUrl } from "@/lib/api";
+import { apiFetch, apiUrl, type MpesaPaymentInitiateResponse, type PaymentRead } from "@/lib/api";
+
+const reportUnlockAmount = Number(process.env.NEXT_PUBLIC_REPORT_UNLOCK_AMOUNT ?? 0);
 
 export default function DownloadReportPage() {
   const params = useParams<{ caseId: string }>();
@@ -18,6 +22,11 @@ export default function DownloadReportPage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [paymentRequired, setPaymentRequired] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [payment, setPayment] = useState<PaymentRead | null>(null);
+  const [paymentMessage, setPaymentMessage] = useState("");
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   async function download() {
     setStatus("Preparing PDF...");
@@ -31,6 +40,11 @@ export default function DownloadReportPage() {
       if (!response.ok) {
         const detail = await response.text();
         setStatus("");
+        if (response.status === 402 || detail.includes("Payment is required")) {
+          setPaymentRequired(true);
+          setError("Payment is required before this report can be downloaded.");
+          return;
+        }
         setError(
           detail.includes("Report is stale")
             ? "Regenerate the report before downloading the PDF."
@@ -51,6 +65,61 @@ export default function DownloadReportPage() {
       setError(err instanceof Error ? err.message : "Unable to download report");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function initiatePayment() {
+    if (!reportUnlockAmount) {
+      setPaymentMessage("Report unlock pricing is not configured for this deployment.");
+      return;
+    }
+    if (!phoneNumber.trim()) {
+      setPaymentMessage("Enter the M-Pesa phone number to receive the STK Push.");
+      return;
+    }
+    setPaymentLoading(true);
+    setPaymentMessage("");
+    try {
+      const token = await getToken();
+      const response = await apiFetch<MpesaPaymentInitiateResponse>("/payments/mpesa/stk-push", token, {
+        method: "POST",
+        body: JSON.stringify({
+          case_id: params.caseId,
+          amount: reportUnlockAmount,
+          phone_number: phoneNumber,
+          purpose: "report_unlock"
+        })
+      });
+      setPayment(response.payment);
+      setPaymentMessage(response.message);
+    } catch (err) {
+      setPaymentMessage(err instanceof Error ? err.message : "Unable to initiate M-Pesa payment");
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  async function pollPaymentStatus() {
+    if (!payment) return;
+    setPaymentLoading(true);
+    setPaymentMessage("");
+    try {
+      const token = await getToken();
+      const latest = await apiFetch<PaymentRead>(`/payments/${payment.id}`, token);
+      setPayment(latest);
+      setPaymentMessage(
+        latest.status === "successful"
+          ? "Payment confirmed. You can download the report."
+          : `Payment status: ${latest.status.replaceAll("_", " ")}`
+      );
+      if (latest.status === "successful") {
+        setPaymentRequired(false);
+        setError("");
+      }
+    } catch (err) {
+      setPaymentMessage(err instanceof Error ? err.message : "Unable to check payment status");
+    } finally {
+      setPaymentLoading(false);
     }
   }
 
@@ -84,6 +153,38 @@ export default function DownloadReportPage() {
             {error ? (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                 {error}
+              </div>
+            ) : null}
+            {paymentRequired || payment ? (
+              <div className="rounded-lg border bg-muted/40 p-4">
+                <div className="text-sm font-medium">M-Pesa report unlock</div>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Reports remain locked until Daraja confirms a successful payment callback. Missing M-Pesa credentials show a transparent not-configured status.
+                </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <div>
+                    <Label htmlFor="mpesa-phone">M-Pesa phone number</Label>
+                    <Input
+                      id="mpesa-phone"
+                      className="mt-1"
+                      value={phoneNumber}
+                      placeholder="07..."
+                      onChange={(event) => setPhoneNumber(event.target.value)}
+                    />
+                  </div>
+                  <Button onClick={initiatePayment} disabled={paymentLoading || !reportUnlockAmount}>
+                    {paymentLoading ? "Starting..." : `Pay KES ${reportUnlockAmount || "not configured"}`}
+                  </Button>
+                </div>
+                {payment ? (
+                  <div className="mt-4 flex flex-col gap-3 rounded-md border bg-background/70 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <span>Status: {payment.status.replaceAll("_", " ")}</span>
+                    <Button variant="outline" onClick={pollPaymentStatus} disabled={paymentLoading}>
+                      {paymentLoading ? "Checking..." : "Check status"}
+                    </Button>
+                  </div>
+                ) : null}
+                {paymentMessage ? <p className="mt-3 text-sm leading-6 text-muted-foreground">{paymentMessage}</p> : null}
               </div>
             ) : null}
             <div className="flex flex-col gap-3 sm:flex-row">

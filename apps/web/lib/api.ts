@@ -237,6 +237,44 @@ export interface ApiGazetteSearch {
   disclaimer: string;
 }
 
+export interface ReviewRequest {
+  id: string;
+  case_id: string;
+  assigned_to_user_id: string | null;
+  reviewer_role: string;
+  reviewer_email: string;
+  note: string;
+  status: string;
+  recommendation: string;
+  review_summary: string;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface PaymentRead {
+  id: string;
+  case_id: string | null;
+  provider: string;
+  purpose: string;
+  amount: string;
+  currency: string;
+  phone_number: string;
+  status: string;
+  provider_merchant_request_id: string;
+  provider_checkout_request_id: string;
+  provider_receipt_number: string;
+  result_code: string;
+  result_description: string;
+  paid_at: string | null;
+  created_at: string;
+}
+
+export interface MpesaPaymentInitiateResponse {
+  payment: PaymentRead | null;
+  status: string;
+  message: string;
+}
+
 export async function apiFetch<T>(path: string, token: string | null, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set("accept", "application/json");
