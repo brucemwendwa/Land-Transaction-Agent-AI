@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.domain.enums import DocumentCategory, VerificationStatus
-from app.services.extraction import extract_document_fields, normalize, normalize_date
+from app.services.extraction import extract_document_fields, extraction_provider_status, normalize, normalize_date
 
 
 def test_deterministic_extraction_finds_land_document_facts_with_evidence() -> None:
@@ -31,6 +31,20 @@ def test_deterministic_extraction_finds_land_document_facts_with_evidence() -> N
     assert by_name["title_number"].value == "TITLE 42"
     assert by_name["document_date"].normalized_value == "2026-05-19"
     assert by_name["parcel_number"].text_snippet
+    assert extraction_provider_status(content_type="text/plain", fields=fields, raw_text=raw_text) == "completed"
+
+
+def test_image_extraction_without_providers_is_transparent() -> None:
+    fields, quality, status, raw_text = extract_document_fields(
+        content=b"not really an image",
+        content_type="image/jpeg",
+        category=DocumentCategory.TITLE_DEED,
+    )
+
+    assert fields == []
+    assert quality == 0.35 or quality is None
+    assert status == VerificationStatus.MANUAL_REVIEW_REQUIRED
+    assert extraction_provider_status(content_type="image/jpeg", fields=fields, raw_text=raw_text) == "provider_not_configured"
 
 
 def test_normalizers_make_dates_and_names_comparable() -> None:
