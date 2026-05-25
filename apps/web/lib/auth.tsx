@@ -18,14 +18,31 @@ type AppAuth = {
   isSignedIn?: boolean;
 };
 
+const developmentAuth: AppAuth = {
+  getToken: async () => null,
+  isSignedIn: true
+};
+
 function useDevelopmentAuth(): AppAuth {
-  return {
-    getToken: async () => null,
-    isSignedIn: true
-  };
+  return developmentAuth;
 }
 
-export const useAppAuth: () => AppAuth = isClerkConfigured ? useClerkAuth : useDevelopmentAuth;
+const missingProductionAuth: AppAuth = {
+  getToken: async () => {
+    throw new Error("Authentication is not configured for production");
+  },
+  isSignedIn: false
+};
+
+function useMissingProductionAuth(): AppAuth {
+  return missingProductionAuth;
+}
+
+export const useAppAuth: () => AppAuth = isClerkConfigured
+  ? useClerkAuth
+  : canUseDevelopmentAuth
+    ? useDevelopmentAuth
+    : useMissingProductionAuth;
 
 export function AuthUserButton() {
   if (!isClerkConfigured) {
