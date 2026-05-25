@@ -41,7 +41,7 @@ def test_successful_pdf_upload_moves_from_quarantine_to_clean_storage(client) ->
     )
     assert complete_response.status_code == 200
     assert complete_response.json()["status"] == DocumentStatus.CLEAN.value
-    assert complete_response.json()["scan_status"] == "skipped_not_configured"
+    assert complete_response.json()["scan_status"] == "not_configured"
 
     case_payload = client.get(f"/cases/{case_id}").json()
     [document] = case_payload["documents"]
