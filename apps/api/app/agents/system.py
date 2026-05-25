@@ -39,7 +39,7 @@ from app.agents.contracts import (
     VisionExtractionAgentOutput,
 )
 from app.domain.enums import DocumentCategory, RiskFactorCode, VerificationStatus
-from app.services.extraction import FieldExtraction, extract_document_fields
+from app.services.extraction import FieldExtraction, extract_document_fields, extraction_provider_status
 from app.services.reporting import LEGAL_DISCLAIMER, build_report_content
 from app.services.risk import RISK_DEFINITIONS, risk_band
 from app.services.storage import StorageProvider
@@ -120,22 +120,37 @@ class VisionExtractionAgent:
         for document in payload.documents:
             try:
                 content = self.storage.read_bytes(document.storage_uri)
-                fields, quality, verification_status, text = extract_document_fields(
+                fields, quality, _verification_status, text = extract_document_fields(
                     content=content,
                     content_type=document.content_type,
                     category=document.category,
                 )
-                tool_statuses[document.id] = verification_status.value
+                provider_status = extraction_provider_status(
+                    content_type=document.content_type,
+                    fields=fields,
+                    raw_text=text,
+                )
+                tool_statuses[document.id] = provider_status
                 extracted = _fields_to_document(document, fields, quality)
+                if provider_status == "provider_not_configured":
+                    extracted.failure = AgentFailure(
+                        code="provider_not_configured",
+                        message="No OCR or vision extraction provider is configured for this file type.",
+                        retryable=False,
+                    )
+                if provider_status == "completed":
+                    reason = f"Extracted {len(fields)} structured fields from {document.filename}."
+                elif provider_status == "provider_not_configured":
+                    reason = f"Extraction provider is not configured for {document.filename}."
+                elif provider_status == "no_structured_fields":
+                    reason = f"Text was found in {document.filename}, but no supported structured fields were extracted."
+                else:
+                    reason = f"No reliable text was extracted from {document.filename}; manual review is required."
                 extracted_documents.append(extracted)
                 decisions.append(
                     AgentDecision(
                         decision="document_extracted" if fields else "manual_review_required",
-                        reason=(
-                            f"Extracted {len(fields)} structured fields from {document.filename}."
-                            if fields
-                            else f"No reliable text was extracted from {document.filename}; manual review is required."
-                        ),
+                        reason=reason,
                         confidence=extracted.extraction_confidence,
                         evidence=extracted.evidence[:5],
                     )
