@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session
 from app.agents.orchestrator import run_case_analysis
 from app.db.session import get_db
 from app.deps import get_case_for_user, get_current_user
+from app.core.config import settings
 from app.models import LandCase, Report, RiskFactor, User
 from app.schemas import ReportGenerationRequest, ReportRead, RiskFactorRead
+from app.routers.payments import has_successful_report_payment
 from app.services.audit import write_audit
 from app.services.reporting import report_stale_reasons
 from app.services.storage import get_storage_provider
@@ -24,6 +26,7 @@ async def latest_report(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> ReportRead:
     case = get_case_for_user(case_id, db, current_user)
+    _ensure_report_unlocked(db, case=case, current_user=current_user)
     report = _latest_report(db, case_id)
     return _report_response(db, case, report)
 
@@ -37,6 +40,7 @@ async def generate_report(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> ReportRead:
     case = get_case_for_user(case_id, db, current_user)
+    _ensure_report_unlocked(db, case=case, current_user=current_user)
     latest = _optional_latest_report(db, case_id)
     if latest is not None:
         stale_reasons = report_stale_reasons(db, case=case, report=latest)
@@ -92,6 +96,7 @@ async def latest_report_pdf(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> Response:
     case = get_case_for_user(case_id, db, current_user)
+    _ensure_report_unlocked(db, case=case, current_user=current_user)
     report = _latest_report(db, case_id)
     stale_reasons = report_stale_reasons(db, case=case, report=report)
     if stale_reasons:
@@ -143,4 +148,19 @@ def _optional_latest_report(db: Session, case_id: str) -> Report | None:
         .filter(Report.case_id == case_id)
         .order_by(Report.created_at.desc())
         .first()
+    )
+
+
+def _ensure_report_unlocked(db: Session, *, case: LandCase, current_user: User) -> None:
+    if not settings.payment_gate_reports or current_user.role.value == "admin":
+        return
+    if has_successful_report_payment(db, case_id=case.id, user_id=current_user.id):
+        return
+    raise HTTPException(
+        status_code=402,
+        detail={
+            "message": "Payment is required before this paid report can be generated, viewed, or downloaded.",
+            "payment_status": "required",
+            "provider": "mpesa",
+        },
     )
