@@ -118,6 +118,7 @@ class DocumentRead(BaseModel):
     content_type: str
     file_size: int
     sha256: str
+    storage_bucket: str
     status: DocumentStatus
     extraction_status: str
     scan_status: str
