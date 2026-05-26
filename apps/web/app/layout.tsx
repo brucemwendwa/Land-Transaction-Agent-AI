@@ -12,15 +12,6 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const authConfig = getWebAuthConfiguration();
-  const body = (
-    <html lang="en" suppressHydrationWarning>
-      <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-        </ThemeProvider>
-      </body>
-    </html>
-  );
 
   if (authConfig.isProduction && !authConfig.clerkConfigured) {
     return (
@@ -36,13 +27,21 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     );
   }
 
-  if (!authConfig.publishableKeyConfigured) {
-    return body;
-  }
+  const appBody = authConfig.publishableKeyConfigured ? (
+    <ClerkProvider publishableKey={authConfig.publishableKey}>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        {children}
+      </ThemeProvider>
+    </ClerkProvider>
+  ) : (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      {children}
+    </ThemeProvider>
+  );
 
   return (
-    <ClerkProvider publishableKey={authConfig.publishableKey}>
-      {body}
-    </ClerkProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body>{appBody}</body>
+    </html>
   );
 }
