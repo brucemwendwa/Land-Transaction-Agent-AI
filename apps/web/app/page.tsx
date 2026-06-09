@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { ModeToggle } from "@/components/mode-toggle";
 import { RiskMeter } from "@/components/risk-meter";
 import { StatusBadge } from "@/components/status-badge";
+import { PublicAuthActions } from "@/lib/auth";
 import { LEGAL_DISCLAIMER, legalLinks } from "@/lib/legal";
 
 const trustCards = [
@@ -96,8 +97,7 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-2">
             <ModeToggle />
-            <Button asChild variant="secondary" size="sm"><Link href="/sign-in">Login</Link></Button>
-            <Button asChild size="sm"><Link href="/dashboard">Dashboard</Link></Button>
+            <PublicAuthActions loginVariant="secondary" />
           </div>
         </div>
       </header>
