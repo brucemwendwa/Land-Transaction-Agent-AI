@@ -1,9 +1,10 @@
 "use client";
 
-import { SignIn, SignUp, useAuth as useClerkAuth, UserButton, UserProfile } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignIn, SignUp, useAuth as useClerkAuth, UserButton, UserProfile } from "@clerk/nextjs";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import type { AuthConfigurationIssue } from "@/lib/auth-config";
+import { AUTH_REDIRECT_PATH } from "@/lib/auth-routes";
 
 const placeholderClerkKey = "replace-with-clerk-publishable-key";
 const isProduction = process.env.NODE_ENV === "production";
@@ -57,14 +58,48 @@ export function AuthUserButton() {
   return <UserButton />;
 }
 
+export function PublicAuthActions({
+  loginVariant = "outline",
+  dashboardVariant = "default"
+}: {
+  loginVariant?: ButtonProps["variant"];
+  dashboardVariant?: ButtonProps["variant"];
+}) {
+  if (!isClerkConfigured) {
+    return (
+      <>
+        <Button asChild variant={loginVariant} size="sm"><Link href="/sign-in">Login</Link></Button>
+        <Button asChild variant={dashboardVariant} size="sm"><Link href={AUTH_REDIRECT_PATH}>Dashboard</Link></Button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <SignedOut>
+        <Button asChild variant={loginVariant} size="sm"><Link href="/sign-in">Login</Link></Button>
+        <Button asChild variant={dashboardVariant} size="sm"><Link href={AUTH_REDIRECT_PATH}>Dashboard</Link></Button>
+      </SignedOut>
+      <SignedIn>
+        <Button asChild variant={dashboardVariant} size="sm"><Link href={AUTH_REDIRECT_PATH}>Dashboard</Link></Button>
+        <UserButton />
+      </SignedIn>
+    </>
+  );
+}
+
 export function AuthSignIn() {
-  if (isClerkConfigured) return <SignIn />;
+  if (isClerkConfigured) {
+    return <SignIn fallbackRedirectUrl={AUTH_REDIRECT_PATH} signUpFallbackRedirectUrl={AUTH_REDIRECT_PATH} />;
+  }
   if (isProduction) return <AuthConfigurationError />;
   return <DevelopmentAuthPanel mode="sign-in" />;
 }
 
 export function AuthSignUp() {
-  if (isClerkConfigured) return <SignUp />;
+  if (isClerkConfigured) {
+    return <SignUp fallbackRedirectUrl={AUTH_REDIRECT_PATH} signInFallbackRedirectUrl={AUTH_REDIRECT_PATH} />;
+  }
   if (isProduction) return <AuthConfigurationError />;
   return <DevelopmentAuthPanel mode="sign-up" />;
 }
