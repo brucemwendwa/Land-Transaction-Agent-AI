@@ -1,4 +1,4 @@
-export const PLACEHOLDER_CLERK_PUBLISHABLE_KEY = "pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk";
+export const PLACEHOLDER_CLERK_PUBLISHABLE_KEY = "replace-with-clerk-publishable-key";
 
 export interface AuthConfigurationIssue {
   code: string;

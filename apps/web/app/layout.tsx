@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthConfigurationError } from "@/lib/auth";
 import { getWebAuthConfiguration } from "@/lib/auth-config";
+import { AUTH_REDIRECT_PATH } from "@/lib/auth-routes";
 
 export const metadata: Metadata = {
   title: "Mradi wa Ardhi — Land Transaction Agent",
@@ -28,7 +29,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   }
 
   const appBody = authConfig.publishableKeyConfigured ? (
-    <ClerkProvider publishableKey={authConfig.publishableKey}>
+    <ClerkProvider
+      publishableKey={authConfig.publishableKey}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      signInFallbackRedirectUrl={AUTH_REDIRECT_PATH}
+      signUpFallbackRedirectUrl={AUTH_REDIRECT_PATH}
+    >
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         {children}
       </ThemeProvider>

@@ -21,8 +21,8 @@ describe("getWebAuthConfiguration", () => {
     const config = getWebAuthConfiguration({
       NODE_ENV: "production",
       VERCEL_ENV: "production",
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_live_real",
-      CLERK_SECRET_KEY: "sk_live_real",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "real-clerk-publishable-key",
+      CLERK_SECRET_KEY: "real-clerk-secret-key",
       AUTH_BYPASS: "true"
     });
 
@@ -33,8 +33,8 @@ describe("getWebAuthConfiguration", () => {
   it("accepts real Clerk keys when production bypass is off", () => {
     const config = getWebAuthConfiguration({
       NODE_ENV: "production",
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_live_real",
-      CLERK_SECRET_KEY: "sk_live_real",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "real-clerk-publishable-key",
+      CLERK_SECRET_KEY: "real-clerk-secret-key",
       AUTH_BYPASS: "false"
     });
 

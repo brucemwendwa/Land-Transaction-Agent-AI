@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { AuthConfigurationIssue } from "@/lib/auth-config";
 
-const placeholderClerkKey = "pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk";
+const placeholderClerkKey = "replace-with-clerk-publishable-key";
 const isProduction = process.env.NODE_ENV === "production";
 
 export const isClerkConfigured =
