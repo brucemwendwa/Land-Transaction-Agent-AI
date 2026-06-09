@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Button } from "@/components/ui/button";
 import { legalLinks } from "@/lib/legal";
+import { PublicAuthActions } from "@/lib/auth";
 
 export function PublicHeader() {
   return (
@@ -28,8 +28,7 @@ export function PublicHeader() {
             ))}
           </nav>
           <ModeToggle />
-          <Button asChild variant="outline" size="sm"><Link href="/sign-in">Login</Link></Button>
-          <Button asChild size="sm"><Link href="/dashboard">Dashboard</Link></Button>
+          <PublicAuthActions />
         </div>
       </div>
     </header>
