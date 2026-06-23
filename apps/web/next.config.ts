@@ -39,12 +39,17 @@ for (const envFile of [".env", `.env.${mode}`, mode === "test" ? "" : ".env.loca
 const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const clerkOrigins = "https://*.clerk.accounts.dev https://*.clerk.com";
 const isProduction = process.env.NODE_ENV === "production";
+const workspaceRoot = path.resolve(webRoot, "../..");
 const scriptPolicy = isProduction
   ? `script-src 'self' 'unsafe-inline' ${clerkOrigins}`
   : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${clerkOrigins}`;
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
+  outputFileTracingRoot: workspaceRoot,
+  turbopack: {
+    root: workspaceRoot
+  },
   images: {
     remotePatterns: [
       {
