@@ -10,7 +10,8 @@ import { AuthUserButton } from "@/lib/auth";
 import { LEGAL_DISCLAIMER, legalLinks } from "@/lib/legal";
 
 const links = [
-  { href: "/dashboard", label: "Dashboard", icon: Home },
+  { href: "/", label: "Home", icon: Home },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/cases/new", label: "New case", icon: FileText },
   { href: "/reviews", label: "Reviews", icon: ShieldCheck },
   { href: "/expert", label: "Expert", icon: UserRoundCheck },
@@ -25,7 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/dashboard" className="focus-ring flex items-center gap-3 rounded-md font-semibold">
+          <Link href="/" className="focus-ring flex items-center gap-3 rounded-md font-semibold">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
               <ScrollText className="h-4 w-4" aria-hidden="true" />
             </span>
