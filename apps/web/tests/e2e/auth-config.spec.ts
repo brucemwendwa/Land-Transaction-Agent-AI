@@ -27,3 +27,13 @@ test("missing Clerk keys show a clear configuration error", async ({ page }) => 
   await expect(page.getByText("CLERK_SECRET_KEY", { exact: true })).toBeVisible();
   await expect(page.getByText(/Production sign-in requires a real Clerk publishable key and secret key/)).toBeVisible();
 });
+
+test("content security policy allows Clerk CAPTCHA resources", async ({ page }) => {
+  const response = await page.goto("/sign-in", { waitUntil: "domcontentloaded" });
+  const csp = response?.headers()["content-security-policy"] ?? "";
+
+  expect(csp).toContain("script-src");
+  expect(csp).toContain("frame-src");
+  expect(csp).toContain("worker-src 'self' blob:");
+  expect(csp).toContain("https://challenges.cloudflare.com");
+});
