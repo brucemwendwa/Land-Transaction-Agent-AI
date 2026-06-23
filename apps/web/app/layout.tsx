@@ -8,7 +8,10 @@ import { AUTH_REDIRECT_PATH } from "@/lib/auth-routes";
 
 export const metadata: Metadata = {
   title: "Mradi wa Ardhi — Land Transaction Agent",
-  description: "AI-assisted land transaction due diligence for buyers in Kenya."
+  description: "AI-assisted land transaction due diligence for buyers in Kenya.",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }]
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
