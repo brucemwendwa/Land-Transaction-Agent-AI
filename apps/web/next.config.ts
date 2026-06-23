@@ -38,11 +38,12 @@ for (const envFile of [".env", `.env.${mode}`, mode === "test" ? "" : ".env.loca
 
 const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const clerkOrigins = "https://*.clerk.accounts.dev https://*.clerk.com";
+const clerkCaptchaOrigins = "https://challenges.cloudflare.com";
 const isProduction = process.env.NODE_ENV === "production";
 const workspaceRoot = path.resolve(webRoot, "../..");
 const scriptPolicy = isProduction
-  ? `script-src 'self' 'unsafe-inline' ${clerkOrigins}`
-  : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${clerkOrigins}`;
+  ? `script-src 'self' 'unsafe-inline' ${clerkOrigins} ${clerkCaptchaOrigins}`
+  : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${clerkOrigins} ${clerkCaptchaOrigins}`;
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
@@ -69,7 +70,8 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://images.unsplash.com https://img.clerk.com",
       "font-src 'self' data:",
-      `frame-src ${clerkOrigins}`,
+      "worker-src 'self' blob:",
+      `frame-src ${clerkOrigins} ${clerkCaptchaOrigins}`,
       "object-src 'none'",
       isProduction ? "upgrade-insecure-requests" : ""
     ].filter(Boolean).join("; ");
