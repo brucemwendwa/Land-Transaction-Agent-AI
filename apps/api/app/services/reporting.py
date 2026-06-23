@@ -1430,8 +1430,8 @@ def _trust_evidence_panel(
     rows: list[dict[str, Any]] = []
     for factor in risk_factors:
         refs = _factor_evidence_refs(factor)
-        first_ref = refs[0] if refs else {}
-        evidence = factor.get("evidence") if isinstance(factor.get("evidence"), dict) else {}
+        first_ref: dict[str, Any] = refs[0] if refs else {}
+        evidence = _evidence_dict(factor)
         document_id = str(first_ref.get("document_id") or "")
         compared_value = _compared_value_for_factor(factor, official_search, gazette)
         extracted_value = _extracted_value_for_factor(factor, refs)
@@ -1478,7 +1478,7 @@ def _extracted_value_for_factor(factor: dict[str, Any], refs: list[dict[str, Any
         value = ref.get("quote") or ref.get("value") or ref.get("text_snippet")
         if value:
             return str(value)
-    evidence = factor.get("evidence") if isinstance(factor.get("evidence"), dict) else {}
+    evidence = _evidence_dict(factor)
     for key in ("values", "required_document", "dates", "quality_score", "signals", "notices"):
         if evidence.get(key):
             return _display(evidence[key])
@@ -1486,7 +1486,7 @@ def _extracted_value_for_factor(factor: dict[str, Any], refs: list[dict[str, Any
 
 
 def _compared_value_for_factor(factor: dict[str, Any], official_search: dict[str, Any], gazette: dict[str, Any]) -> str:
-    evidence = factor.get("evidence") if isinstance(factor.get("evidence"), dict) else {}
+    evidence = _evidence_dict(factor)
     for key in ("values", "official_search_conflicts", "dates"):
         if evidence.get(key):
             return _display(evidence[key])
@@ -1499,13 +1499,18 @@ def _compared_value_for_factor(factor: dict[str, Any], official_search: dict[str
 
 
 def _factor_confidence(factor: dict[str, Any]) -> float | None:
-    evidence = factor.get("evidence") if isinstance(factor.get("evidence"), dict) else {}
+    evidence = _evidence_dict(factor)
     for key in ("confidence", "confidence_score", "quality_score"):
         try:
             return float(evidence[key])
         except (KeyError, TypeError, ValueError):
             continue
     return None
+
+
+def _evidence_dict(factor: dict[str, Any]) -> dict[str, Any]:
+    evidence = factor.get("evidence")
+    return evidence if isinstance(evidence, dict) else {}
 
 
 def _kiswahili_summaries(
