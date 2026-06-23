@@ -104,7 +104,19 @@ export function AuthSignUp() {
 }
 
 export function AuthUserProfile() {
-  if (isClerkConfigured) return <UserProfile />;
+  if (isClerkConfigured) {
+    return (
+      <UserProfile
+        routing="hash"
+        appearance={{
+          elements: {
+            rootBox: "w-full",
+            cardBox: "w-full max-w-none shadow-none"
+          }
+        }}
+      />
+    );
+  }
   if (isProduction) return <AuthConfigurationError />;
   return (
     <div className="p-6">

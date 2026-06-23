@@ -16,11 +16,11 @@ export default function SettingsPage() {
           Manage your profile while the platform keeps security, audit, and verification boundaries visible.
         </p>
       </div>
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="overflow-hidden rounded-lg border bg-card p-2 shadow-sm">
+      <div className="mt-6 grid gap-6">
+        <div className="min-w-0 overflow-x-auto rounded-lg border bg-card p-2 shadow-sm">
           <AuthUserProfile />
         </div>
-        <aside className="space-y-4">
+        <aside className="grid gap-4 lg:grid-cols-3">
           <Card className="premium-panel">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
