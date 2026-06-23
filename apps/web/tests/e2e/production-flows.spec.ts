@@ -1,5 +1,7 @@
 import { expect, type Page, type Route, test } from "@playwright/test";
 
+const pageErrors = new WeakMap<Page, string[]>();
+
 const baseCase = {
   id: "case-1",
   title: "Kitengela parcel purchase",
@@ -19,7 +21,9 @@ const baseCase = {
   updated_at: "2026-05-25T08:00:00"
 };
 
-function documentFixture(extracted = false) {
+function documentFixture(extracted = false, options: { extractionConfigured?: boolean } = {}) {
+  const extractionConfigured = options.extractionConfigured ?? true;
+  const providerNotConfigured = !extractionConfigured && extracted;
   return {
     id: "doc-1",
     case_id: "case-1",
@@ -29,8 +33,8 @@ function documentFixture(extracted = false) {
     file_size: 1200,
     sha256: "a".repeat(64),
     storage_bucket: "local",
-    status: "clean",
-    extraction_status: extracted ? "completed" : "pending",
+    status: providerNotConfigured ? "needs_review" : "clean",
+    extraction_status: providerNotConfigured ? "needs_review" : extracted ? "completed" : "pending",
     scan_status: "not_configured",
     image_quality_score: 0.86,
     rejection_reason: "",
@@ -38,8 +42,16 @@ function documentFixture(extracted = false) {
     created_at: "2026-05-25T08:00:00",
     detected_document_type: "title_deed",
     document_type_confidence: 0.91,
-    extraction_warnings: [],
-    extracted_fields: extracted
+    extraction_warnings: providerNotConfigured
+      ? [
+          {
+            code: "provider_not_configured",
+            severity: "warning",
+            message: "No OCR or vision extraction provider is configured for this file type. Manual review is required."
+          }
+        ]
+      : [],
+    extracted_fields: extracted && extractionConfigured
       ? [
           {
             id: "field-1",
@@ -90,6 +102,23 @@ const reportFixture = {
   }
 };
 
+test.beforeEach(async ({ page }) => {
+  const errors: string[] = [];
+  pageErrors.set(page, errors);
+  page.on("console", (message) => {
+    if (message.type() === "error" && !isExpectedBrowserResourceStatus(message.text())) {
+      errors.push(message.text());
+    }
+  });
+  page.on("pageerror", (error) => {
+    errors.push(error.message);
+  });
+});
+
+test.afterEach(async ({ page }) => {
+  expect(pageErrors.get(page) ?? []).toEqual([]);
+});
+
 test("sign up and sign in surfaces are available", async ({ page }) => {
   await page.goto("/sign-in");
   await expect(page.getByRole("heading", { name: /Development authentication is enabled/ })).toBeVisible();
@@ -97,18 +126,33 @@ test("sign up and sign in surfaces are available", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Development authentication is enabled/ })).toBeVisible();
 });
 
-test("case creation, upload, extraction, analysis, report download, and expert review flow", async ({ page }) => {
+test("authenticated development user can access dashboard", async ({ page }) => {
+  await mockApi(page, { uploaded: true, extracted: true });
+
+  await page.goto("/dashboard");
+
+  await expect(page.getByRole("heading", { name: "Land transaction cases" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kitengela parcel purchase" })).toBeVisible();
+  await expect(page.getByText("Total cases")).toBeVisible();
+});
+
+test("case creation and document upload flow", async ({ page }) => {
   const state = { uploaded: false, extracted: false };
   await mockApi(page, state);
 
   await page.goto("/cases/new");
+  await page.waitForLoadState("networkidle");
   await page.getByLabel("Case title").fill("Kitengela parcel purchase");
   await page.getByLabel("Buyer name").fill("Jane Wanjiku");
   await page.getByLabel("Seller name").fill("John Mwangi");
   await page.getByLabel("Claimed parcel number").fill("LR 209/1234");
   await page.getByLabel("County").fill("Kajiado");
-  await page.getByRole("button", { name: /Create and upload documents/ }).click();
-  await expect(page).toHaveURL(/\/cases\/case-1\/upload/);
+  await Promise.all([
+    page.waitForURL(/\/cases\/case-1\/upload/),
+    page.getByRole("button", { name: /Create and upload documents/ }).click()
+  ]);
+  await expect(page.getByRole("heading", { name: "Kitengela parcel purchase" })).toBeVisible();
+  await waitForHydration(page);
 
   await page.getByLabel("PDF or image").setInputFiles({
     name: "title-deed.pdf",
@@ -116,34 +160,83 @@ test("case creation, upload, extraction, analysis, report download, and expert r
     buffer: Buffer.from("%PDF-1.4\n% test")
   });
   await page.getByLabel(/I have permission to upload/).check();
-  await page.locator("form").last().evaluate((form) => (form as HTMLFormElement).requestSubmit());
+  await page.getByRole("button", { name: /Upload securely/ }).click();
   await expect(page.getByText("Document uploaded and queued for extraction.")).toBeVisible();
+});
 
-  await page.getByRole("link", { name: /Review extraction/ }).click();
+test("configured extraction populates document fields", async ({ page }) => {
+  const state = { uploaded: true, extracted: false };
+  await mockApi(page, state);
+
+  await page.goto("/cases/case-1/extraction");
   await page.getByRole("button", { name: /^Extract$/ }).click();
-  await expect(page.getByText("LR 209/1234").first()).toBeVisible();
 
-  await page.getByRole("link", { name: /Analyze/ }).click();
+  await expect(page.getByText("LR 209/1234").first()).toBeVisible();
+});
+
+test("risk analysis generates an AI-assisted report", async ({ page }) => {
+  await mockApi(page, { uploaded: true, extracted: true });
+
+  await page.goto("/cases/case-1/analysis");
   await page.getByLabel(/I understand this report is AI-assisted/).check();
   await page.getByRole("button", { name: /Run risk analysis/ }).click();
-  await expect(page.getByText("Risk report generated and audit events recorded.")).toBeVisible();
 
-  await page.goto("/cases/case-1/download");
-  await page.getByRole("button", { name: /Download PDF/ }).click();
-  await expect(page.getByText("PDF downloaded.")).toBeVisible();
+  await expect(page.getByText("Risk report generated and audit events recorded.")).toBeVisible();
+  await expect(page.getByText("48").first()).toBeVisible();
+});
+
+test("expert review request is saved", async ({ page }) => {
+  await mockApi(page, { uploaded: true, extracted: true });
 
   await page.goto("/cases/case-1/review");
   await page.getByLabel("Reviewer email").fill("advocate@example.com");
   await page.getByLabel("Note").fill("Please review seller authority and consent.");
   await page.getByRole("button", { name: /Request review/ }).click();
+
   await expect(page.getByText("Review request saved and audit logged.")).toBeVisible();
+});
+
+test("extraction shows transparent OCR-not-configured state", async ({ page }) => {
+  const state = { uploaded: true, extracted: false, extractionConfigured: false };
+  await mockApi(page, state);
+
+  await page.goto("/cases/case-1/extraction");
+  await page.getByRole("button", { name: /^Extract$/ }).click();
+
+  await expect(page.getByText("provider not configured")).toBeVisible();
+  await expect(page.getByText("No OCR or vision extraction provider is configured for this file type.")).toBeVisible();
+  await expect(page.getByText("No fields extracted yet")).toBeVisible();
+});
+
+test("risk analysis exposes Gazette not-configured state", async ({ page }) => {
+  await mockApi(page, { uploaded: true, extracted: true });
+
+  await page.goto("/cases/case-1/analysis");
+  await page.getByRole("button", { name: /Run Gazette search/ }).click();
+
+  await expect(page.getByText("Gazette source adapters are not configured.")).toBeVisible();
+  await expect(page.getByText("No Gazette source adapter is configured for automated search.")).toBeVisible();
+});
+
+test("report preview loads and downloads the current PDF", async ({ page }) => {
+  await mockApi(page, { uploaded: true, extracted: true, reportAvailable: true });
+
+  await page.goto("/cases/case-1/report", { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByRole("heading", { name: "Land Risk Report" })).toBeVisible();
+  await expect(page.getByText("Medium risk. Confirm official records before payment.").first()).toBeVisible();
+  await expect(page.getByText("Get a fresh official search certificate")).toBeVisible();
+
+  await page.getByRole("button", { name: /Download PDF/ }).click();
+  await expect(page.getByText("PDF downloaded.")).toBeVisible();
 });
 
 test("payment-gated report unlock waits for confirmed M-Pesa success", async ({ page }) => {
   const state = { uploaded: true, extracted: true, gated: true, paymentSuccessful: false };
   await mockApi(page, state);
 
-  await page.goto("/cases/case-1/download");
+  await page.goto("/cases/case-1/download", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
   await page.getByRole("button", { name: /Download PDF/ }).click();
   await expect(page.getByText("Payment is required before this report can be downloaded.")).toBeVisible();
   await page.getByLabel("M-Pesa phone number").fill("0712345678");
@@ -155,19 +248,64 @@ test("payment-gated report unlock waits for confirmed M-Pesa success", async ({ 
   await expect(page.getByText("PDF downloaded.")).toBeVisible();
 });
 
-test("legal and compliance pages expose required disclaimers", async ({ page }) => {
-  for (const path of ["/terms", "/privacy", "/data-retention", "/ai-disclaimer"]) {
-    await page.goto(path);
-    await expect(page.getByText(/This report is an AI-assisted risk analysis/).first()).toBeVisible();
-  }
+test("payment unlock shows transparent M-Pesa not-configured status", async ({ page }) => {
+  const state = { uploaded: true, extracted: true, gated: true, mpesaConfigured: false };
+  await mockApi(page, state);
+
+  await page.goto("/cases/case-1/download", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await page.getByRole("button", { name: /Download PDF/ }).click();
+  await expect(page.getByText("Payment is required before this report can be downloaded.")).toBeVisible();
+  await page.getByLabel("M-Pesa phone number").fill("0712345678");
+  await page.getByRole("button", { name: /Pay KES 100/ }).click();
+
+  await expect(page.getByText("M-Pesa Daraja credentials are not configured.")).toBeVisible();
+  await expect(page.getByText("Status: not configured")).toBeVisible();
 });
+
+test("non-admin user sees protected admin route denial", async ({ page }) => {
+  await mockApi(page, { adminForbidden: true });
+
+  await page.goto("/admin");
+
+  await expect(page.getByRole("heading", { name: "Admin dashboard" })).toBeVisible();
+  await expect(page.getByText("Insufficient role")).toBeVisible();
+});
+
+test("case access denial is shown when another user's case is requested", async ({ page }) => {
+  await mockApi(page, { inaccessibleCase: true });
+
+  await page.goto("/cases/other-case/upload");
+
+  await expect(page.getByText("Case is not accessible").first()).toBeVisible();
+});
+
+for (const path of ["/terms", "/privacy", "/data-retention", "/ai-disclaimer"]) {
+  test(`${path} exposes required legal disclaimer`, async ({ page }) => {
+    await page.goto(path, { waitUntil: "domcontentloaded" });
+    await expect(page.getByText(/This report is an AI-assisted risk analysis/).first()).toBeVisible();
+  });
+}
 
 test("unauthorized production route protection has a clear configuration-error screen", async ({ page }) => {
   await page.goto("/configuration-error");
   await expect(page.getByRole("heading", { name: /Authentication is not configured/ })).toBeVisible();
 });
 
-async function mockApi(page: Page, state: { uploaded?: boolean; extracted?: boolean; gated?: boolean; paymentSuccessful?: boolean }) {
+async function mockApi(
+  page: Page,
+  state: {
+    uploaded?: boolean;
+    extracted?: boolean;
+    gated?: boolean;
+    paymentSuccessful?: boolean;
+    extractionConfigured?: boolean;
+    reportAvailable?: boolean;
+    mpesaConfigured?: boolean;
+    adminForbidden?: boolean;
+    inaccessibleCase?: boolean;
+  }
+) {
   await page.route("http://127.0.0.1:3002/mock-upload/**", async (route) => {
     state.uploaded = true;
     await route.fulfill({ status: 200, headers: corsHeaders(), body: "" });
@@ -189,13 +327,28 @@ async function mockApi(page: Page, state: { uploaded?: boolean; extracted?: bool
       return;
     }
 
+    if (path === "/cases" && request.method() === "GET") {
+      await json(route, [{ ...baseCase, documents: state.uploaded ? [documentFixture(Boolean(state.extracted))] : [] }]);
+      return;
+    }
+
     if (path === "/cases" && request.method() === "POST") {
       await json(route, { ...baseCase, documents: [] });
       return;
     }
 
+    if (path === "/cases/other-case" && request.method() === "GET") {
+      await json(route, { detail: "Case is not accessible" }, 403);
+      return;
+    }
+
     if (path === "/cases/case-1" && request.method() === "GET") {
-      await json(route, { ...baseCase, documents: state.uploaded ? [documentFixture(Boolean(state.extracted))] : [] });
+      await json(route, {
+        ...baseCase,
+        documents: state.uploaded
+          ? [documentFixture(Boolean(state.extracted), { extractionConfigured: state.extractionConfigured })]
+          : []
+      });
       return;
     }
 
@@ -218,11 +371,47 @@ async function mockApi(page: Page, state: { uploaded?: boolean; extracted?: bool
 
     if (path === "/documents/doc-1/extract" && request.method() === "POST") {
       state.extracted = true;
-      await json(route, { document: documentFixture(true), extracted_fields: documentFixture(true).extracted_fields, verification_status: "not_checked" });
+      const document = documentFixture(true, { extractionConfigured: state.extractionConfigured });
+      await json(route, { document, extracted_fields: document.extracted_fields, verification_status: "not_checked" });
       return;
     }
 
     if (path === "/cases/case-1/analysis" && request.method() === "POST") {
+      await json(route, reportFixture);
+      return;
+    }
+
+    if (path === "/api/cases/case-1/gazette-search" && request.method() === "POST") {
+      await json(route, {
+        status: "not_configured",
+        query_terms: ["LR 209/1234", "Kajiado"],
+        results: [],
+        source_results: [
+          {
+            source_name: "Kenya Gazette",
+            status: "not_configured",
+            query_terms: [],
+            error: "Gazette source adapter is not configured.",
+            checked_at: "2026-05-25T08:00:00"
+          }
+        ],
+        message: "Gazette source adapters are not configured.",
+        checked_at: "2026-05-25T08:00:00",
+        disclaimer: "Gazette search is a public-source risk signal, not official ownership verification."
+      });
+      return;
+    }
+
+    if (path === "/cases/case-1/report" && request.method() === "GET") {
+      if (state.reportAvailable) {
+        await json(route, reportFixture);
+        return;
+      }
+      await json(route, { detail: "Report not found" }, 404);
+      return;
+    }
+
+    if (path === "/cases/case-1/report" && request.method() === "POST") {
       await json(route, reportFixture);
       return;
     }
@@ -261,7 +450,42 @@ async function mockApi(page: Page, state: { uploaded?: boolean; extracted?: bool
       return;
     }
 
+    if (path === "/reviews" && request.method() === "GET") {
+      await json(route, []);
+      return;
+    }
+
+    if (path === "/admin/users" && request.method() === "GET") {
+      if (state.adminForbidden) {
+        await json(route, { detail: "Insufficient role" }, 403);
+        return;
+      }
+      await json(route, [
+        {
+          id: "admin-1",
+          email: "admin@example.test",
+          full_name: "Admin User",
+          role: "admin",
+          created_at: "2026-05-25T08:00:00"
+        }
+      ]);
+      return;
+    }
+
+    if (path === "/admin/cases" && request.method() === "GET") {
+      await json(route, [{ ...baseCase, documents: state.uploaded ? [documentFixture(Boolean(state.extracted))] : [] }]);
+      return;
+    }
+
     if (path === "/payments/mpesa/stk-push" && request.method() === "POST") {
+      if (state.mpesaConfigured === false) {
+        await json(route, {
+          status: "not_configured",
+          message: "M-Pesa Daraja credentials are not configured.",
+          payment: paymentFixture("not_configured")
+        });
+        return;
+      }
       await json(route, {
         status: "initiated",
         message: "M-Pesa STK Push initiated.",
@@ -314,4 +538,12 @@ function corsHeaders() {
     "access-control-allow-headers": "authorization, content-type",
     "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS"
   };
+}
+
+function isExpectedBrowserResourceStatus(text: string) {
+  return /Failed to load resource: the server responded with a status of (402|403)/.test(text);
+}
+
+async function waitForHydration(page: Page) {
+  await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
 }
