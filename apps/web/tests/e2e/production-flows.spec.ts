@@ -178,8 +178,11 @@ test("risk analysis generates an AI-assisted report", async ({ page }) => {
   await mockApi(page, { uploaded: true, extracted: true });
 
   await gotoApp(page, "/cases/case-1/analysis");
+  await waitForHydration(page);
   await page.getByLabel(/I understand this report is AI-assisted/).check();
-  await page.getByRole("button", { name: /Run risk analysis/ }).click();
+  const runAnalysisButton = page.getByRole("button", { name: /Run risk analysis/ });
+  await expect(runAnalysisButton).toBeEnabled();
+  await runAnalysisButton.click();
 
   await expect(page.getByText("Risk report generated and audit events recorded.")).toBeVisible();
   await expect(page.getByText("48").first()).toBeVisible();
@@ -189,6 +192,7 @@ test("expert review request is saved", async ({ page }) => {
   await mockApi(page, { uploaded: true, extracted: true });
 
   await gotoApp(page, "/cases/case-1/review");
+  await waitForHydration(page);
   await page.getByLabel("Reviewer email").fill("advocate@example.com");
   await page.getByLabel("Note").fill("Please review seller authority and consent.");
   await page.getByRole("button", { name: /Request review/ }).click();
@@ -212,6 +216,7 @@ test("risk analysis exposes Gazette not-configured state", async ({ page }) => {
   await mockApi(page, { uploaded: true, extracted: true });
 
   await gotoApp(page, "/cases/case-1/analysis");
+  await waitForHydration(page);
   await page.getByRole("button", { name: /Run Gazette search/ }).click();
 
   await expect(page.getByText("Gazette source adapters are not configured.")).toBeVisible();
