@@ -120,16 +120,16 @@ test.afterEach(async ({ page }) => {
 });
 
 test("sign up and sign in surfaces are available", async ({ page }) => {
-  await page.goto("/sign-in");
+  await gotoApp(page, "/sign-in");
   await expect(page.getByRole("heading", { name: /Development authentication is enabled/ })).toBeVisible();
-  await page.goto("/sign-up");
+  await gotoApp(page, "/sign-up");
   await expect(page.getByRole("heading", { name: /Development authentication is enabled/ })).toBeVisible();
 });
 
 test("authenticated development user can access dashboard", async ({ page }) => {
   await mockApi(page, { uploaded: true, extracted: true });
 
-  await page.goto("/dashboard");
+  await gotoApp(page, "/dashboard");
 
   await expect(page.getByRole("heading", { name: "Land transaction cases" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Kitengela parcel purchase" })).toBeVisible();
@@ -140,7 +140,7 @@ test("case creation and document upload flow", async ({ page }) => {
   const state = { uploaded: false, extracted: false };
   await mockApi(page, state);
 
-  await page.goto("/cases/new");
+  await gotoApp(page, "/cases/new");
   await page.waitForLoadState("networkidle");
   await page.getByLabel("Case title").fill("Kitengela parcel purchase");
   await page.getByLabel("Buyer name").fill("Jane Wanjiku");
@@ -148,7 +148,7 @@ test("case creation and document upload flow", async ({ page }) => {
   await page.getByLabel("Claimed parcel number").fill("LR 209/1234");
   await page.getByLabel("County").fill("Kajiado");
   await Promise.all([
-    page.waitForURL(/\/cases\/case-1\/upload/),
+    page.waitForURL(/\/cases\/case-1\/upload/, { waitUntil: "domcontentloaded" }),
     page.getByRole("button", { name: /Create and upload documents/ }).click()
   ]);
   await expect(page.getByRole("heading", { name: "Kitengela parcel purchase" })).toBeVisible();
@@ -168,7 +168,7 @@ test("configured extraction populates document fields", async ({ page }) => {
   const state = { uploaded: true, extracted: false };
   await mockApi(page, state);
 
-  await page.goto("/cases/case-1/extraction");
+  await gotoApp(page, "/cases/case-1/extraction");
   await page.getByRole("button", { name: /^Extract$/ }).click();
 
   await expect(page.getByText("LR 209/1234").first()).toBeVisible();
@@ -177,7 +177,7 @@ test("configured extraction populates document fields", async ({ page }) => {
 test("risk analysis generates an AI-assisted report", async ({ page }) => {
   await mockApi(page, { uploaded: true, extracted: true });
 
-  await page.goto("/cases/case-1/analysis");
+  await gotoApp(page, "/cases/case-1/analysis");
   await page.getByLabel(/I understand this report is AI-assisted/).check();
   await page.getByRole("button", { name: /Run risk analysis/ }).click();
 
@@ -188,7 +188,7 @@ test("risk analysis generates an AI-assisted report", async ({ page }) => {
 test("expert review request is saved", async ({ page }) => {
   await mockApi(page, { uploaded: true, extracted: true });
 
-  await page.goto("/cases/case-1/review");
+  await gotoApp(page, "/cases/case-1/review");
   await page.getByLabel("Reviewer email").fill("advocate@example.com");
   await page.getByLabel("Note").fill("Please review seller authority and consent.");
   await page.getByRole("button", { name: /Request review/ }).click();
@@ -200,7 +200,7 @@ test("extraction shows transparent OCR-not-configured state", async ({ page }) =
   const state = { uploaded: true, extracted: false, extractionConfigured: false };
   await mockApi(page, state);
 
-  await page.goto("/cases/case-1/extraction");
+  await gotoApp(page, "/cases/case-1/extraction");
   await page.getByRole("button", { name: /^Extract$/ }).click();
 
   await expect(page.getByText("provider not configured")).toBeVisible();
@@ -211,7 +211,7 @@ test("extraction shows transparent OCR-not-configured state", async ({ page }) =
 test("risk analysis exposes Gazette not-configured state", async ({ page }) => {
   await mockApi(page, { uploaded: true, extracted: true });
 
-  await page.goto("/cases/case-1/analysis");
+  await gotoApp(page, "/cases/case-1/analysis");
   await page.getByRole("button", { name: /Run Gazette search/ }).click();
 
   await expect(page.getByText("Gazette source adapters are not configured.")).toBeVisible();
@@ -221,7 +221,7 @@ test("risk analysis exposes Gazette not-configured state", async ({ page }) => {
 test("report preview loads and downloads the current PDF", async ({ page }) => {
   await mockApi(page, { uploaded: true, extracted: true, reportAvailable: true });
 
-  await page.goto("/cases/case-1/report", { waitUntil: "domcontentloaded" });
+  await gotoApp(page, "/cases/case-1/report");
 
   await expect(page.getByRole("heading", { name: "Land Risk Report" })).toBeVisible();
   await expect(page.getByText("Medium risk. Confirm official records before payment.").first()).toBeVisible();
@@ -235,7 +235,7 @@ test("payment-gated report unlock waits for confirmed M-Pesa success", async ({ 
   const state = { uploaded: true, extracted: true, gated: true, paymentSuccessful: false };
   await mockApi(page, state);
 
-  await page.goto("/cases/case-1/download", { waitUntil: "domcontentloaded" });
+  await gotoApp(page, "/cases/case-1/download");
   await waitForHydration(page);
   await page.getByRole("button", { name: /Download PDF/ }).click();
   await expect(page.getByText("Payment is required before this report can be downloaded.")).toBeVisible();
@@ -252,7 +252,7 @@ test("payment unlock shows transparent M-Pesa not-configured status", async ({ p
   const state = { uploaded: true, extracted: true, gated: true, mpesaConfigured: false };
   await mockApi(page, state);
 
-  await page.goto("/cases/case-1/download", { waitUntil: "domcontentloaded" });
+  await gotoApp(page, "/cases/case-1/download");
   await waitForHydration(page);
   await page.getByRole("button", { name: /Download PDF/ }).click();
   await expect(page.getByText("Payment is required before this report can be downloaded.")).toBeVisible();
@@ -266,7 +266,7 @@ test("payment unlock shows transparent M-Pesa not-configured status", async ({ p
 test("non-admin user sees protected admin route denial", async ({ page }) => {
   await mockApi(page, { adminForbidden: true });
 
-  await page.goto("/admin");
+  await gotoApp(page, "/admin");
 
   await expect(page.getByRole("heading", { name: "Admin dashboard" })).toBeVisible();
   await expect(page.getByText("Insufficient role")).toBeVisible();
@@ -275,20 +275,20 @@ test("non-admin user sees protected admin route denial", async ({ page }) => {
 test("case access denial is shown when another user's case is requested", async ({ page }) => {
   await mockApi(page, { inaccessibleCase: true });
 
-  await page.goto("/cases/other-case/upload");
+  await gotoApp(page, "/cases/other-case/upload");
 
   await expect(page.getByText("Case is not accessible").first()).toBeVisible();
 });
 
 for (const path of ["/terms", "/privacy", "/data-retention", "/ai-disclaimer"]) {
   test(`${path} exposes required legal disclaimer`, async ({ page }) => {
-    await page.goto(path, { waitUntil: "domcontentloaded" });
+    await gotoApp(page, path);
     await expect(page.getByText(/This report is an AI-assisted risk analysis/).first()).toBeVisible();
   });
 }
 
 test("unauthorized production route protection has a clear configuration-error screen", async ({ page }) => {
-  await page.goto("/configuration-error");
+  await gotoApp(page, "/configuration-error");
   await expect(page.getByRole("heading", { name: /Authentication is not configured/ })).toBeVisible();
 });
 
@@ -546,4 +546,8 @@ function isExpectedBrowserResourceStatus(text: string) {
 
 async function waitForHydration(page: Page) {
   await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+}
+
+async function gotoApp(page: Page, path: string) {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
 }
