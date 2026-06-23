@@ -202,9 +202,10 @@ def extract_document_fields(
     content_type: str,
     category: DocumentCategory,
 ) -> tuple[list[FieldExtraction], float | None, VerificationStatus, str]:
+    providers: list[ExtractionProvider] = [LocalTextProvider(), DocumentAIProvider(), GeminiVisionProvider()]
     results = [
         provider.extract(content=content, content_type=content_type, category=category)
-        for provider in [LocalTextProvider(), DocumentAIProvider(), GeminiVisionProvider()]
+        for provider in providers
     ]
     text = next((result.text for result in results if result.text), "")
     fields = [
