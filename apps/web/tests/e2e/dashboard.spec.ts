@@ -1,0 +1,31 @@
+import { expect, test } from "@playwright/test";
+import { makeCase, mockMradiApi } from "./support/mradi-api";
+
+test("authenticated test user can access dashboard", async ({ page }) => {
+  await mockMradiApi(page, { cases: [makeCase()] });
+
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByRole("heading", { name: "Land transaction cases" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kitengela parcel purchase" })).toBeVisible();
+  await expect(page.getByText("Total cases")).toBeVisible();
+});
+
+test("dashboard empty state appears when no cases exist", async ({ page }) => {
+  await mockMradiApi(page, { cases: [] });
+
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByRole("heading", { name: "Start with a transaction case" })).toBeVisible();
+  await expect(page.getByText("Create a case, upload documents, and generate a risk report")).toBeVisible();
+});
+
+test("dashboard create case button opens the new case form", async ({ page }) => {
+  await mockMradiApi(page, { cases: [] });
+
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await page.getByRole("main").getByRole("link", { name: /New case/ }).click();
+
+  await expect(page).toHaveURL(/\/cases\/new$/);
+  await expect(page.getByRole("heading", { name: "Create case" })).toBeVisible();
+});
