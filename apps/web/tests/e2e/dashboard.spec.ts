@@ -39,3 +39,25 @@ test("dashboard navigation can return to the public homepage", async ({ page }) 
   await expect(page).toHaveURL("/");
   await expect(page.getByRole("heading", { name: /Before You Buy Land/ })).toBeVisible();
 });
+
+test("primary navigation keeps every app route visible on small screens", async ({ page }) => {
+  await mockMradiApi(page, { cases: [] });
+
+  await page.goto("/reviews", { waitUntil: "domcontentloaded" });
+
+  const navigation = page.getByRole("navigation", { name: "Primary navigation" });
+  for (const label of ["Home", "Dashboard", "New case", "Reviews", "Expert", "Admin", "Audit", "Settings"]) {
+    await expect(navigation.getByRole("link", { name: label })).toBeVisible();
+  }
+
+  await expect
+    .poll(async () =>
+      navigation.evaluate((element) => {
+        const navBounds = element.getBoundingClientRect();
+        const linkBounds = Array.from(element.querySelectorAll("a")).map((link) => link.getBoundingClientRect());
+
+        return linkBounds.every((bounds) => bounds.left >= navBounds.left - 1 && bounds.right <= navBounds.right + 1);
+      })
+    )
+    .toBe(true);
+});
