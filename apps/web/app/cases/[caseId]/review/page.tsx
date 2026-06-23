@@ -28,10 +28,11 @@ export default function ReviewRequestPage() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setLoading(true);
     setError("");
     setStatus("");
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     try {
       const token = await getToken();
       await apiFetch("/reviews", token, {
@@ -44,7 +45,7 @@ export default function ReviewRequestPage() {
         })
       });
       setStatus("Review request saved and audit logged.");
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to request review");
     } finally {
