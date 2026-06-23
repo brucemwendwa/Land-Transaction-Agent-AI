@@ -3,15 +3,14 @@
 import { SignedIn, SignedOut, SignIn, SignUp, useAuth as useClerkAuth, UserButton, UserProfile } from "@clerk/nextjs";
 import Link from "next/link";
 import { Button, type ButtonProps } from "@/components/ui/button";
-import type { AuthConfigurationIssue } from "@/lib/auth-config";
+import { PLACEHOLDER_CLERK_PUBLISHABLE_KEY, type AuthConfigurationIssue } from "@/lib/auth-config";
 import { AUTH_REDIRECT_PATH } from "@/lib/auth-routes";
 
-const placeholderClerkKey = "replace-with-clerk-publishable-key";
 const isProduction = process.env.NODE_ENV === "production";
 
 export const isClerkConfigured =
   Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) &&
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY !== placeholderClerkKey;
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY !== PLACEHOLDER_CLERK_PUBLISHABLE_KEY;
 
 export const canUseDevelopmentAuth = !isProduction && !isClerkConfigured;
 
