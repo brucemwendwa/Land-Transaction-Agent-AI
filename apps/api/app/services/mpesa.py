@@ -60,7 +60,10 @@ class MpesaClient:
                 headers={"Authorization": f"Bearer {token}"},
             )
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            if not isinstance(data, dict):
+                raise RuntimeError("M-Pesa STK Push response was not a JSON object")
+            return {str(key): value for key, value in data.items()}
 
     async def _access_token(self) -> str:
         credentials = f"{settings.mpesa_consumer_key}:{settings.mpesa_consumer_secret}"
