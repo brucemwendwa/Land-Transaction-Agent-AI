@@ -269,8 +269,11 @@ def _factor_confidence(factor: dict[str, Any]) -> float | None:
     for ref in refs:
         if not isinstance(ref, dict):
             continue
+        confidence = ref.get("confidence")
+        if confidence is None:
+            continue
         try:
-            confidences.append(float(ref.get("confidence")))
+            confidences.append(float(confidence))
         except (TypeError, ValueError):
             continue
     return round(sum(confidences) / len(confidences), 2) if confidences else None
