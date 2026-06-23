@@ -29,3 +29,13 @@ test("dashboard create case button opens the new case form", async ({ page }) =>
   await expect(page).toHaveURL(/\/cases\/new$/);
   await expect(page.getByRole("heading", { name: "Create case" })).toBeVisible();
 });
+
+test("dashboard navigation can return to the public homepage", async ({ page }) => {
+  await mockMradiApi(page, { cases: [] });
+
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Home" }).click();
+
+  await expect(page).toHaveURL("/");
+  await expect(page.getByRole("heading", { name: /Before You Buy Land/ })).toBeVisible();
+});
