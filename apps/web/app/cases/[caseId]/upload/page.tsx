@@ -52,6 +52,7 @@ export default function UploadDocumentsPage() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
     const file = selectedFile;
     if (!file) {
       setError("Choose a document before uploading.");
@@ -100,7 +101,7 @@ export default function UploadDocumentsPage() {
       await load();
       setSelectedFile(null);
       setHasConsent(false);
-      event.currentTarget.reset();
+      form.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
       setUploadProgress(0);
