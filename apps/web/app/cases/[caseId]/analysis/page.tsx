@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAppAuth } from "@/lib/auth";
@@ -8,6 +8,7 @@ import { ArrowRight, BrainCircuit, ExternalLink, FileSearch, Gavel, Landmark, Ne
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { CaseAgentChat } from "@/components/case-agent-chat";
+import { MissingDocumentsWarning } from "@/components/document-list";
 import { ProgressTracker } from "@/components/progress-tracker";
 import { RiskMeter } from "@/components/risk-meter";
 import { StatusBadge } from "@/components/status-badge";
@@ -15,7 +16,7 @@ import { SuccessState } from "@/components/state-views";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { apiFetch, type ApiGazetteSearch, type ApiReport } from "@/lib/api";
+import { apiFetch, type ApiCase, type ApiGazetteSearch, type ApiReport } from "@/lib/api";
 
 const agentSteps = [
   { name: "IntakeAgent", body: "Confirms case context and uploaded evidence.", icon: FileSearch },
@@ -28,12 +29,22 @@ const agentSteps = [
 export default function AnalysisPage() {
   const params = useParams<{ caseId: string }>();
   const { getToken } = useAppAuth();
+  const [landCase, setLandCase] = useState<ApiCase | null>(null);
   const [report, setReport] = useState<ApiReport | null>(null);
   const [gazette, setGazette] = useState<ApiGazetteSearch | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "complete">("idle");
   const [gazetteStatus, setGazetteStatus] = useState<"idle" | "running" | "complete">("idle");
   const [error, setError] = useState("");
   const [acceptedLegalDisclaimer, setAcceptedLegalDisclaimer] = useState(false);
+
+  const loadCase = useCallback(async () => {
+    const token = await getToken();
+    setLandCase(await apiFetch<ApiCase>(`/cases/${params.caseId}`, token));
+  }, [getToken, params.caseId]);
+
+  useEffect(() => {
+    void loadCase().catch(() => undefined);
+  }, [loadCase]);
 
   async function runAnalysis() {
     setStatus("running");
@@ -83,6 +94,8 @@ export default function AnalysisPage() {
               Run the multi-agent review once documents are uploaded and extraction has been checked. The report separates observed evidence from official verification.
             </p>
           </div>
+
+          {landCase ? <MissingDocumentsWarning documents={landCase.documents} /> : null}
 
           <Card className="premium-panel overflow-hidden">
             <CardHeader>
@@ -151,6 +164,40 @@ export default function AnalysisPage() {
               </div>
             </CardContent>
           </Card>
+
+          {report?.content.trust_evidence_panel?.length ? (
+            <Card className="premium-panel">
+              <CardHeader>
+                <CardTitle>Evidence panel</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3">
+                {report.content.trust_evidence_panel.slice(0, 4).map((row, index) => (
+                  <article key={`${row.risk_code}-${index}`} className="rounded-lg border bg-background/70 p-4">
+                    <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+                      <div>
+                        <h2 className="font-semibold">{row.risk_label}</h2>
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">{row.what_detected}</p>
+                      </div>
+                      <StatusBadge
+                        tone="neutral"
+                        label={row.confidence_score === null ? "Confidence n/a" : `${Math.round(row.confidence_score * 100)}% confidence`}
+                      />
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                      <div className="rounded-md border bg-muted/30 p-3">
+                        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Document</div>
+                        <div className="mt-1">{row.document_caused}</div>
+                      </div>
+                      <div className="rounded-md border bg-muted/30 p-3">
+                        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recommended action</div>
+                        <div className="mt-1">{row.recommended_action}</div>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
 
           <Card className="premium-panel overflow-hidden">
             <CardHeader>
