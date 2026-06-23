@@ -42,7 +42,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-5 sm:px-6 md:grid-cols-[238px_1fr] lg:px-8">
-        <nav aria-label="Primary navigation" className="flex gap-2 overflow-auto pb-1 md:sticky md:top-20 md:block md:h-[calc(100vh-6rem)] md:space-y-2 md:overflow-visible md:pb-0">
+        <nav
+          aria-label="Primary navigation"
+          className="grid grid-cols-4 gap-2 md:sticky md:top-20 md:block md:h-[calc(100vh-6rem)] md:space-y-2"
+        >
           {links.map((link) => {
             const Icon = link.icon;
             const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
@@ -50,15 +53,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={link.href}
                 href={link.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "focus-ring relative flex min-w-fit items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                  "focus-ring relative flex h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-center text-xs leading-tight transition-colors md:h-auto md:flex-row md:justify-start md:gap-2 md:px-3 md:py-2.5 md:text-left md:text-sm",
                   active
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Icon className="h-4 w-4" aria-hidden="true" />
-                {link.label}
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 break-words">{link.label}</span>
               </Link>
             );
           })}
