@@ -110,7 +110,6 @@ export default function LandingPage() {
             transition={{ duration: 0.55, ease: "easeOut" }}
             className="max-w-4xl text-white"
           >
-            <Badge className="mb-5 bg-white/20 text-white backdrop-blur">Premium AI due diligence for Kenyan land buyers</Badge>
             <h1 className="max-w-4xl text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">
               Before You Buy Land, Let AI Stress-Test the Deal.
             </h1>
